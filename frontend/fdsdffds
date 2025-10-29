@@ -1,0 +1,18 @@
+[33m459f0b8[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmaster[m[33m, [m[1;31morigin/master[m[33m)[m cleaned the push notif feature, back to normal
+[33m6da62a4[m undo when no push notifications
+[33m20a12be[m sw.js undo
+[33mc5e7c8f[m sw.js update
+[33m79c6f2b[m Fixed env variables for prod
+[33mb3e5fcc[m Push notif added
+[33m5d55e24[m Resident Dashboard UI fix and functionalities
+[33me54b159[m Update ResponderDashboard, sidebar, map zoom, and UI improvements
+[33m7fc4b4e[m socket more faster
+[33m6c227fa[m change sound notif for responder
+[33m3870d2a[m feat(admin): enhance ReportsLog with full name + username and date filters
+[33mc50ac0b[m Update dashboards, emergency list, map view, and notifications
+[33m7deb660[m announcement mp3
+[33mcdaa0a2[m VITE IMAGE
+[33m47d1d3c[m VITE IMAGE URL
+[33m4c08003[m Remove /api
+[33m0da0a36[m All users fix
+[33m46def7a[m Replace old frontend with latest local backup

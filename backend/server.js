@@ -181,5 +181,3 @@ server.listen(PORT, () => {
   console.log(`ZAPALERT Backend running on port ${PORT}`);
   console.log(`Server URL: ${serverUrl}`);
 });
-
-agg

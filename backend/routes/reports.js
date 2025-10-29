@@ -1,42 +1,43 @@
 const express = require("express");
 const router = express.Router();
 const mongoose = require("mongoose");
-const authMiddleware = require("../middleware/authMiddleware");
+const authMiddleware = require("../middleware/authMiddleware"); // Import auth checker
 
-// ✅ Define Report Schema
+// ✅ Define what responder actions look like
 const responderActionSchema = new mongoose.Schema({
-  responderId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-  fullName: String,
-  action: { type: String, enum: ["on the way", "responded", "declined", "arrived"] },
-  timestamp: { type: Date, default: Date.now },
+  responderId: { type: mongoose.Schema.Types.ObjectId, ref: "User" }, // Which responder
+  fullName: String, // Responder's name
+  action: { type: String, enum: ["on the way", "responded", "declined", "arrived"] }, // What they did
+  timestamp: { type: Date, default: Date.now }, // When they did it
 });
 
+// ✅ Define what emergency reports look like
 const reportSchema = new mongoose.Schema({
-  type: { type: String, required: true },
-  description: { type: String, required: false, default: "" },
-  username: { type: String, required: true },
-  firstName: { type: String, required: true },
-  lastName: { type: String, required: true },
-  age: { type: Number },
-  contactNumber: { type: String },
-  latitude: { type: Number, required: true },
-  longitude: { type: Number, required: true },
-  status: { type: String, default: "pending" },
-  cancellationReason: { type: String }, 
-  responders: [responderActionSchema],
-  resolvedAt: { type: Date },
-  createdAt: { type: Date, default: Date.now },
+  type: { type: String, required: true }, // Emergency type (fire, flood, etc.)
+  description: { type: String, required: false, default: "" }, // Additional details
+  username: { type: String, required: true }, // Who reported it
+  firstName: { type: String, required: true }, // Reporter's first name
+  lastName: { type: String, required: true }, // Reporter's last name
+  age: { type: Number }, // Reporter's age
+  contactNumber: { type: String }, // Reporter's phone
+  latitude: { type: Number, required: true }, // Location coordinates
+  longitude: { type: Number, required: true }, // Location coordinates
+  status: { type: String, default: "pending" }, // Current status
+  cancellationReason: { type: String }, // Why was it cancelled
+  responders: [responderActionSchema], // Array of responder actions
+  resolvedAt: { type: Date }, // When it was resolved
+  createdAt: { type: Date, default: Date.now }, // When it was reported
 });
 
-
-// ✅ Create Model
+// ✅ Create Report model for database
 const Report = mongoose.model("Report", reportSchema);
 
 // ---------------------------
-// POST /api/reports — submit emergency
+// POST /api/reports — Submit new emergency report
 // ---------------------------
 router.post("/", async (req, res) => {
   try {
+    // Get all data from request
     const {
       type,
       description = "",
@@ -49,13 +50,15 @@ router.post("/", async (req, res) => {
       longitude,
     } = req.body;
 
+    // Check if required fields are present
     if (!type || !firstName || !lastName || !latitude || !longitude) {
       return res.status(400).json({ error: "Missing required fields." });
     }
 
-    let parsedAge = Number(age);
-    if (isNaN(parsedAge)) parsedAge = undefined;
+    let parsedAge = Number(age); // Convert age to number
+    if (isNaN(parsedAge)) parsedAge = undefined; // Handle invalid age
 
+    // Create new report in database
     const newReport = new Report({
       type,
       description,
@@ -66,13 +69,13 @@ router.post("/", async (req, res) => {
       contactNumber,
       latitude,
       longitude,
-      status: "pending",
+      status: "pending", // Start as pending
     });
 
-    await newReport.save();
+    await newReport.save(); // Save to database
     res.status(201).json({ 
       message: "Report submitted successfully!",
-      reportId: newReport._id // Add this line
+      reportId: newReport._id // Return the new report ID
     });
   } catch (err) {
     console.error("❌ Failed to save report:", err);
@@ -81,11 +84,11 @@ router.post("/", async (req, res) => {
 });
 
 // ---------------------------
-// GET /api/reports — fetch all reports
+// GET /api/reports — Get all emergency reports
 // ---------------------------
 router.get("/", async (req, res) => {
   try {
-    const reports = await Report.find().sort({ createdAt: -1 });
+    const reports = await Report.find().sort({ createdAt: -1 }); // Get all reports, newest first
     res.json(reports);
   } catch (err) {
     console.error("❌ Failed to fetch reports:", err);
@@ -94,25 +97,26 @@ router.get("/", async (req, res) => {
 });
 
 // ---------------------------
-// PATCH /api/reports/:id/respond — notify resident and other responders
+// PATCH /api/reports/:id/respond — Mark report as responded
 // ---------------------------
 router.patch("/:id/respond", authMiddleware, async (req, res) => {
   try {
-    const report = await Report.findById(req.params.id);
+    const report = await Report.findById(req.params.id); // Find report by ID
     if (!report) return res.status(404).json({ error: "Report not found." });
 
-    const io = req.app.get("io");
-    const socketMap = req.app.get("socketMap");
-    const residentSocketId = socketMap.get(report.username);
+    const io = req.app.get("io"); // Get socket.io for real-time messaging
+    const socketMap = req.app.get("socketMap"); // Get connected users map
+    const residentSocketId = socketMap.get(report.username); // Find resident's connection
 
+    // Get responder's name from logged in user
     const responderName = req.user
       ? `${req.user.firstName} ${req.user.lastName}`
       : "Responder";
 
-    // Update status in MongoDB
+    // Update report status in database
     report.status = "responded";
 
-    // ✅ Track responder action
+    // ✅ Track responder action in history
     report.responders.push({
       responderId: req.user._id,
       fullName: responderName,
@@ -120,14 +124,14 @@ router.patch("/:id/respond", authMiddleware, async (req, res) => {
       timestamp: new Date(),
     });
 
-    // ✅ Mark resolvedAt if not already set
+    // ✅ Mark resolved time if not already set
     if (!report.resolvedAt) {
       report.resolvedAt = new Date();
     }
 
-    await report.save();
+    await report.save(); // Save changes
 
-    // Notify resident
+    // Notify resident that help is coming
     if (residentSocketId) {
       io.to(residentSocketId).emit("responded", {
         type: report.type,
@@ -138,14 +142,13 @@ router.patch("/:id/respond", authMiddleware, async (req, res) => {
       console.log(`📤 Emitted 'responded' to ${report.username}`);
     }
 
-    // Notify other responders
-    const currentResponderId =
-      req.user?._id?.toString() || req.user?.responderId || req.user?.username;
+    // Notify other responders about the update
+    const currentResponderId = req.user?._id?.toString() || req.user?.responderId || req.user?.username;
     io.sockets.sockets.forEach((socket) => {
       if (
         socket.responderId &&
         currentResponderId &&
-        socket.responderId.toString() !== currentResponderId
+        socket.responderId.toString() !== currentResponderId // Don't notify yourself
       ) {
         socket.emit("notify-responded", {
           reportId: report._id,
@@ -169,7 +172,7 @@ router.patch("/:id/respond", authMiddleware, async (req, res) => {
 });
 
 // ---------------------------
-// PATCH /api/reports/:id/ontheway — mark report as on the way
+// PATCH /api/reports/:id/ontheway — Mark as on the way
 // ---------------------------
 router.patch("/:id/ontheway", authMiddleware, async (req, res) => {
   try {
@@ -177,6 +180,7 @@ router.patch("/:id/ontheway", authMiddleware, async (req, res) => {
       ? `${req.user.firstName} ${req.user.lastName}`
       : "Responder";
 
+    // Update report and add responder action
     const updated = await Report.findByIdAndUpdate(
       req.params.id,
       {
@@ -190,7 +194,7 @@ router.patch("/:id/ontheway", authMiddleware, async (req, res) => {
           },
         },
       },
-      { new: true }
+      { new: true } // Return updated document
     );
     if (!updated) return res.status(404).json({ error: "Report not found." });
 
@@ -198,7 +202,7 @@ router.patch("/:id/ontheway", authMiddleware, async (req, res) => {
     const socketMap = req.app.get("socketMap");
     const residentSocketId = socketMap.get(updated.username);
 
-    // Notify resident
+    // Notify resident that responder is on the way
     if (residentSocketId) {
       io.to(residentSocketId).emit("notify-resident", {
         type: updated.type,
@@ -209,8 +213,7 @@ router.patch("/:id/ontheway", authMiddleware, async (req, res) => {
     }
 
     // Notify other responders
-    const currentResponderId =
-      req.user?._id?.toString() || req.user?.responderId || req.user?.username;
+    const currentResponderId = req.user?._id?.toString() || req.user?.responderId || req.user?.username;
     io.sockets.sockets.forEach((socket) => {
       if (
         socket.responderId &&
@@ -235,7 +238,7 @@ router.patch("/:id/ontheway", authMiddleware, async (req, res) => {
 });
 
 // ---------------------------
-// DELETE /api/reports/:id — decline report
+// DELETE /api/reports/:id — Decline/Cancel a report
 // ---------------------------
 router.delete("/:id", authMiddleware, async (req, res) => {
   try {
@@ -244,16 +247,15 @@ router.delete("/:id", authMiddleware, async (req, res) => {
 
     const io = req.app.get("io");
     const responderName = `${req.user.firstName} ${req.user.lastName}`;
-    const responderUsername = req.user.username; // Get responder username
     const reportId = report._id;
 
     const socketMap = req.app.get("socketMap");
     const residentSocketId = socketMap.get(report.username);
 
-    // Update report instead of deleting
+    // Update report status instead of deleting
     report.status = "declined";
 
-    // ✅ Log responder action
+    // ✅ Log responder action in history
     report.responders.push({
       responderId: req.user._id,
       fullName: responderName,
@@ -261,14 +263,14 @@ router.delete("/:id", authMiddleware, async (req, res) => {
       timestamp: new Date(),
     });
 
-    // ✅ Mark resolvedAt if not already set
+    // ✅ Mark resolved time if not already set
     if (!report.resolvedAt) {
       report.resolvedAt = new Date();
     }
 
-    await report.save();
+    await report.save(); // Save changes
 
-    // Notify resident
+    // Notify resident that report was declined
     if (residentSocketId) {
       io.to(residentSocketId).emit("declined", {
         type: report.type,
@@ -278,7 +280,7 @@ router.delete("/:id", authMiddleware, async (req, res) => {
       });
     }
 
-    // Notify other responders
+    // Notify other responders about the decline
     const currentResponderId = req.user?._id?.toString();
     io.sockets.sockets.forEach((socket) => {
       if (
@@ -308,7 +310,7 @@ router.delete("/:id", authMiddleware, async (req, res) => {
 });
 
 // ---------------------------
-// PATCH /api/reports/:id/arrived — mark report as arrived
+// PATCH /api/reports/:id/arrived — Mark as arrived at location
 // ---------------------------
 router.patch("/:id/arrived", authMiddleware, async (req, res) => {
   try {
@@ -317,7 +319,7 @@ router.patch("/:id/arrived", authMiddleware, async (req, res) => {
 
     const responderName = `${req.user.firstName} ${req.user.lastName}`;
 
-    // ✅ Track responder action in DB
+    // ✅ Track responder arrival in database
     report.responders.push({
       responderId: req.user._id,
       fullName: responderName,
@@ -331,7 +333,7 @@ router.patch("/:id/arrived", authMiddleware, async (req, res) => {
     const socketMap = req.app.get("socketMap");
     const residentSocketId = socketMap.get(report.username);
 
-    // ✅ Notify resident
+    // ✅ Notify resident that responder has arrived
     if (residentSocketId) {
       io.to(residentSocketId).emit("arrived", {
         type: report.type,
@@ -341,9 +343,8 @@ router.patch("/:id/arrived", authMiddleware, async (req, res) => {
       });
     }
 
-    // ✅ Notify ONLY other responders (not self)
-    const currentResponderId =
-      req.user?._id?.toString() || req.user?.responderId || req.user?.username;
+    // ✅ Notify other responders (not the one who arrived)
+    const currentResponderId = req.user?._id?.toString() || req.user?.responderId || req.user?.username;
 
     io.sockets.sockets.forEach((socket) => {
       if (
@@ -369,7 +370,7 @@ router.patch("/:id/arrived", authMiddleware, async (req, res) => {
 });
 
 // ---------------------------
-// PATCH /api/reports/:id/followup — resident requests follow-up
+// PATCH /api/reports/:id/followup — Resident requests follow-up
 // ---------------------------
 router.patch("/:id/followup", async (req, res) => {
   try {
@@ -378,19 +379,19 @@ router.patch("/:id/followup", async (req, res) => {
 
     const io = req.app.get("io");
 
-    // Get responders who are "on the way" and NOT declined
+    // Get responders who are on the way
     const onTheWayResponders = report.responders
       .filter(responder => responder.action === "on the way")
       .map(responder => responder.fullName);
 
-    // Get responders who have declined this report
+    // Get responders who have declined
     const declinedResponders = report.responders
       .filter(responder => responder.action === "declined")
       .map(responder => responder.fullName);
 
-    // Notify only responders who are "on the way" and haven't declined
+    // Notify only responders who are on the way and haven't declined
     io.sockets.sockets.forEach((socket) => {
-      // Check if this socket belongs to a responder who is on the way and hasn't declined
+      // Check if this responder should be notified
       const shouldNotify = onTheWayResponders.some(responderName => 
         socket.responderName === responderName && 
         !declinedResponders.includes(responderName)
@@ -414,12 +415,12 @@ router.patch("/:id/followup", async (req, res) => {
 });
 
 // ---------------------------
-// PATCH /api/reports/:id/cancel — cancel a report with responder count check
+// PATCH /api/reports/:id/cancel — Cancel a report
 // ---------------------------
 router.patch("/:id/cancel", async (req, res) => {
   try {
     const { id } = req.params;
-    const { reason } = req.body;
+    const { reason } = req.body; // Get cancellation reason
     
     const report = await Report.findById(id);
     
@@ -427,12 +428,12 @@ router.patch("/:id/cancel", async (req, res) => {
       return res.status(404).json({ error: "Report not found." });
     }
 
-    // Count how many responders are currently "on the way"
+    // Count how many responders are currently on the way
     const activeResponders = report.responders.filter(
       responder => responder.action === "on the way"
     ).length;
 
-    // Update report status to cancelled and store reason
+    // Update report status to cancelled
     report.status = "cancelled";
     report.cancellationReason = reason || "No reason provided";
     report.cancellationTime = new Date();
@@ -440,7 +441,7 @@ router.patch("/:id/cancel", async (req, res) => {
 
     const io = req.app.get("io");
     
-    // Notify all responders about the cancellation lah
+    // Notify all responders about the cancellation
     io.emit("report-cancelled", {
       reportId: report._id,
       type: report.type,

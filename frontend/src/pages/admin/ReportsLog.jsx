@@ -5,41 +5,45 @@ import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 
+// Custom icon for reports on the map
 const ReportIcon = new L.Icon({
   iconUrl: "/icons/marker.png",
   iconSize: [40, 40],
 });
 
 const ReportsLog = () => {
-  const [reports, setReports] = useState([]);
-  const [selectedReport, setSelectedReport] = useState(null);
-  const [showActions, setShowActions] = useState(false);
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [searchKeyword, setSearchKeyword] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [dateFilter, setDateFilter] = useState("latest");
-  const [specificDate, setSpecificDate] = useState("");
+  const [reports, setReports] = useState([]); // All emergency reports
+  const [selectedReport, setSelectedReport] = useState(null); // Report selected for details
+  const [showActions, setShowActions] = useState(false); // Show responder actions modal
+  const [statusFilter, setStatusFilter] = useState("all"); // Filter by report status
+  const [searchKeyword, setSearchKeyword] = useState(""); // Search across report fields
+  const [currentPage, setCurrentPage] = useState(1); // Current page for pagination
+  const [dateFilter, setDateFilter] = useState("latest"); // Filter by date
+  const [specificDate, setSpecificDate] = useState(""); // Specific date for filtering
 
-  const reportsPerPage = 20;
+  const reportsPerPage = 20; // Number of reports per page
 
+  // Fetch reports on component mount and set up auto-refresh
   useEffect(() => {
     fetchReports();
-    const interval = setInterval(fetchReports, 2000);
-    return () => clearInterval(interval);
+    const interval = setInterval(fetchReports, 2000); // Refresh every 2 seconds
+    return () => clearInterval(interval); // Cleanup on unmount
   }, []);
 
+  // Fetch all reports from API
   const fetchReports = async () => {
     try {
       const response = await axios.get(
         `${import.meta.env.VITE_API_URL}/reports`
       );
-      const nonArchived = response.data.filter((r) => !r.archived);
+      const nonArchived = response.data.filter((r) => !r.archived); // Filter out archived reports
       setReports(nonArchived);
     } catch (error) {
       toast.error("Failed to fetch reports.");
     }
   };
 
+  // Get full name from report data (handles different data formats)
   const getFullName = (report) => {
     if (report.firstName && report.lastName) {
       return `${report.firstName} ${report.lastName}`;
@@ -47,7 +51,9 @@ const ReportsLog = () => {
     return report.username || "N/A";
   };
 
+  // Export reports to CSV file
   const handleExportCSV = () => {
+    // Prepare data for CSV export
     const rows = reports.map(
       ({
         _id,
@@ -59,7 +65,7 @@ const ReportsLog = () => {
         username,
         latitude,
         longitude,
-        responders // Include responders in export
+        responders // Include responder actions
       }) => ({
         id: _id,
         type,
@@ -76,9 +82,12 @@ const ReportsLog = () => {
       })
     );
 
+    // Escape CSV values to handle commas and quotes
     const escapeCSV = (str) => `"${(str || "").replace(/"/g, '""')}"`;
 
+    // Create CSV content
     const csv = [
+      // Header row
       [
         "ID",
         "Type",
@@ -90,6 +99,7 @@ const ReportsLog = () => {
         "Longitude",
         "Responder Actions"
       ],
+      // Data rows
       ...rows.map((row) =>
         [
           escapeCSV(row.id),
@@ -105,18 +115,21 @@ const ReportsLog = () => {
       ),
     ].join("\n");
 
+    // Create and trigger download
     const blob = new Blob([csv], { type: "text/csv" });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
 
+    // Generate filename with current date
     const today = new Date();
-    const formattedDate = today.toLocaleDateString("en-CA");
+    const formattedDate = today.toLocaleDateString("en-CA"); // YYYY-MM-DD format
     a.download = `BRGY_REPORTS-${formattedDate}.csv`;
 
-    a.click();
+    a.click(); // Trigger download
   };
 
+  // Get CSS class for status badges
   const getStatusColor = (status) => {
     switch(status) {
       case 'pending': return 'bg-yellow-100 text-yellow-800';
@@ -128,7 +141,7 @@ const ReportsLog = () => {
     }
   };
 
-  // Add this function to format action text
+  // Format action text for display
   const formatActionText = (action) => {
     const actionMap = {
       'on_the_way': 'On the Way',
@@ -140,16 +153,19 @@ const ReportsLog = () => {
     return actionMap[action] || action.replace("_", " ");
   };
 
+  // Apply all active filters to reports
   const filteredReports = reports
     .filter((report) => {
       const normalize = (str) => str.toLowerCase().replace(/_/g, " ");
 
+      // Status filter
       const matchesStatus =
         statusFilter === "all" ||
         normalize(report.status) === statusFilter ||
         (statusFilter === "resolved" &&
           normalize(report.status) === "responded");
 
+      // Search filter
       const matchesKeyword = Object.values(report).some(
         (value) =>
           typeof value === "string" &&
@@ -159,6 +175,7 @@ const ReportsLog = () => {
       return matchesStatus && matchesKeyword;
     })
     .filter((report) => {
+      // Date filters
       const created = new Date(report.createdAt);
       const today = new Date();
 
@@ -184,12 +201,14 @@ const ReportsLog = () => {
       return true;
     })
     .sort((a, b) => {
+      // Sort by date
       if (dateFilter === "oldest") {
-        return new Date(a.createdAt) - new Date(b.createdAt);
+        return new Date(a.createdAt) - new Date(b.createdAt); // Oldest first
       }
-      return new Date(b.createdAt) - new Date(a.createdAt);
+      return new Date(b.createdAt) - new Date(a.createdAt); // Latest first (default)
     });
 
+  // Pagination calculations
   const totalPages = Math.ceil(filteredReports.length / reportsPerPage);
   const currentReports = filteredReports.slice(
     (currentPage - 1) * reportsPerPage,
@@ -200,7 +219,7 @@ const ReportsLog = () => {
     <div className="bg-gradient-to-br from-white via-red-50 to-orange-50 rounded-2xl shadow-lg p-6">
       <h1 className="text-3xl font-bold mb-6 text-gray-800">Reports Log</h1>
 
-      {/* Filters - All in one row */}
+      {/* Filters and Controls */}
       <div className="flex flex-wrap gap-3 mb-6 items-center">
         {/* Status Filter Buttons */}
         <div className="flex flex-wrap gap-2">
@@ -210,8 +229,8 @@ const ReportsLog = () => {
               onClick={() => setStatusFilter(status)}
               className={`px-3 py-2 rounded-xl border-2 transition-all text-sm font-medium whitespace-nowrap ${
                 statusFilter === status
-                  ? "bg-gradient-to-r from-red-500 to-orange-500 text-white border-transparent shadow-lg"
-                  : "bg-white/80 border-red-200 text-gray-700 hover:bg-red-50 hover:border-red-300"
+                  ? "bg-gradient-to-r from-red-500 to-orange-500 text-white border-transparent shadow-lg" // Active button
+                  : "bg-white/80 border-red-200 text-gray-700 hover:bg-red-50 hover:border-red-300" // Inactive button
               }`}
             >
               {status === "all" ? "All" : status.charAt(0).toUpperCase() + status.slice(1)}
@@ -219,7 +238,7 @@ const ReportsLog = () => {
           ))}
         </div>
 
-        {/* Date Filter */}
+        {/* Date Filter Dropdown */}
         <select
           value={dateFilter}
           onChange={(e) => setDateFilter(e.target.value)}
@@ -233,7 +252,7 @@ const ReportsLog = () => {
           <option value="specific">Choose Date</option>
         </select>
         
-        {/* Specific Date Input */}
+        {/* Specific Date Input (shown when "Choose Date" is selected) */}
         {dateFilter === "specific" && (
           <input
             type="date"
@@ -252,7 +271,7 @@ const ReportsLog = () => {
           className="p-2 border-2 border-red-200 rounded-xl bg-white/80 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-red-200 focus:border-red-400 text-sm min-w-[180px] flex-1"
         />
         
-        {/* Export Button */}
+        {/* Export to CSV Button */}
         <button
           onClick={handleExportCSV}
           className="px-4 py-2 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl hover:from-green-600 hover:to-green-700 transition-all shadow-lg text-sm font-medium whitespace-nowrap"
@@ -261,7 +280,7 @@ const ReportsLog = () => {
         </button>
       </div>
 
-      {/* Table - Removed Responders column */}
+      {/* Reports Table */}
       <div className="overflow-x-auto rounded-2xl shadow-lg bg-white/80 backdrop-blur-sm">
         <table className="min-w-full text-sm">
           <thead className="bg-gradient-to-r from-red-500 to-orange-500 text-white">
@@ -308,8 +327,8 @@ const ReportsLog = () => {
             onClick={() => setCurrentPage(idx + 1)}
             className={`px-4 py-2 rounded-xl border-2 transition-all ${
               currentPage === idx + 1 
-                ? "bg-gradient-to-r from-red-500 to-orange-500 text-white border-transparent shadow-lg" 
-                : "bg-white/80 border-red-200 text-gray-700 hover:bg-red-50"
+                ? "bg-gradient-to-r from-red-500 to-orange-500 text-white border-transparent shadow-lg" // Active page
+                : "bg-white/80 border-red-200 text-gray-700 hover:bg-red-50" // Inactive page
             }`}
           >
             {idx + 1}
@@ -317,13 +336,14 @@ const ReportsLog = () => {
         ))}
       </div>
 
+      {/* Report Details Modal */}
       {selectedReport && (
         <div
           className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
-          onClick={() => setSelectedReport(null)}
+          onClick={() => setSelectedReport(null)} // Close when clicking backdrop
         >
           <div
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()} // Prevent closing when clicking modal
             className="bg-gradient-to-br from-white via-red-50 to-orange-50 rounded-2xl p-6 w-full max-w-2xl shadow-2xl relative border-2 border-red-200"
           >
             <button
@@ -335,6 +355,7 @@ const ReportsLog = () => {
             
             <h2 className="text-2xl font-bold mb-4 text-gray-800">Report Details</h2>
             
+            {/* Report Information */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mb-4">
               <div className="space-y-2">
                 <p><strong>Full Name:</strong> {getFullName(selectedReport)}</p>
@@ -352,7 +373,7 @@ const ReportsLog = () => {
               </div>
             </div>
 
-            {/* Add cancellation reason display here */}
+            {/* Cancellation Reason (if cancelled) */}
             {selectedReport.status === 'cancelled' && selectedReport.cancellationReason && (
               <div className="mb-4 p-3 bg-red-50 rounded-lg border border-red-200">
                 <p className="font-semibold text-red-800 mb-1 text-sm">Cancellation Reason:</p>
@@ -362,6 +383,7 @@ const ReportsLog = () => {
               </div>
             )}
 
+            {/* View Responder Actions Button */}
             <div className="flex justify-center mb-4">
               <button
                 onClick={() => setShowActions(true)}
@@ -371,6 +393,7 @@ const ReportsLog = () => {
               </button>
             </div>
 
+            {/* Map showing report location */}
             <div className="h-56 w-full rounded-xl overflow-hidden border-2 border-red-200">
               <MapContainer
                 center={[selectedReport.latitude, selectedReport.longitude]}
@@ -395,10 +418,10 @@ const ReportsLog = () => {
       {showActions && selectedReport && (
         <div
           className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
-          onClick={() => setShowActions(false)}
+          onClick={() => setShowActions(false)} // Close when clicking backdrop
         >
           <div
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()} // Prevent closing when clicking modal
             className="bg-gradient-to-br from-white via-red-50 to-orange-50 rounded-2xl p-6 w-full max-w-2xl shadow-2xl relative border-2 border-red-200"
           >
             <button
@@ -410,6 +433,7 @@ const ReportsLog = () => {
             
             <h2 className="text-2xl font-bold mb-6 text-gray-800">Responder Actions</h2>
             
+            {/* Responder Actions Table */}
             {selectedReport.responders && selectedReport.responders.length > 0 ? (
               <div className="overflow-x-auto rounded-2xl shadow-inner bg-white/80">
                 <table className="min-w-full text-sm">

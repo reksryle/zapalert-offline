@@ -1,4 +1,4 @@
-// frontend/src/pages/Signup.jsx
+// Signup.jsx
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
@@ -7,14 +7,16 @@ import "react-toastify/dist/ReactToastify.css";
 import Select from "react-select";
 import useNetworkStatus from "../hooks/useNetworkStatus";
 
+// User registration component for ZapAlert system
 const Signup = () => {
   const navigate = useNavigate();
   const networkStatus = useNetworkStatus();
   
-  // ✅ Loading screen & wait screen states
-  const [isLoading, setIsLoading] = useState(true);
-  const [showWaitScreen, setShowWaitScreen] = useState(false);
+  // Loading and wait screen states
+  const [isLoading, setIsLoading] = useState(true); // Controls initial loading screen
+  const [showWaitScreen, setShowWaitScreen] = useState(false); // Controls post-signup wait screen
 
+  // Form state management
   const [form, setForm] = useState({
     firstName: "",
     lastName: "",
@@ -23,15 +25,16 @@ const Signup = () => {
     password: "",
     contactNumber: "",
     barrio: "",
-    barangay: "Zapatera",
-    role: "resident",
+    barangay: "Zapatera", // Fixed value for barangay
+    role: "resident", // Default role
   });
 
-  const [idImage, setIdImage] = useState(null);
-  const [agree, setAgree] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [idImage, setIdImage] = useState(null); // Stores uploaded ID file
+  const [agree, setAgree] = useState(false); // Terms agreement checkbox
+  const [showPassword, setShowPassword] = useState(false); // Password visibility toggle
+  const [isSubmitting, setIsSubmitting] = useState(false); // Form submission state
 
+  // Barrio options for dropdown
   const barrioOptions = [
     { value: "Bayabas", label: "Bayabas" },
     { value: "Caimito", label: "Caimito" },
@@ -43,14 +46,19 @@ const Signup = () => {
     { value: "Upper Mangga", label: "Upper Mangga" },
   ];
 
+  // Initialize loading screen
   useEffect(() => {
     const timer = setTimeout(() => setIsLoading(false), 2000);
     return () => clearTimeout(timer);
   }, []);
 
+  // Handle form input changes
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+  
+  // Handle file input for ID upload
   const handleFileChange = (e) => setIdImage(e.target.files[0]);
 
+  // Toast notification configuration
   const toastStyle = {
     toastId: "signupToast",
     position: "top-center",
@@ -76,10 +84,12 @@ const Signup = () => {
     closeButton: false,
   };
 
+  // Handle form submission with validation
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (isSubmitting) return;
 
+    // Validate required fields
     const requiredFields = ["firstName", "lastName", "age", "username", "password", "contactNumber", "barrio"];
     for (let field of requiredFields) {
       if (!form[field] || form[field].trim() === "") {
@@ -89,18 +99,26 @@ const Signup = () => {
     }
 
     const ageNum = parseInt(form.age);
+    
+    // Validate file upload
     if (!idImage) {
       toast.error("Please upload a valid ID image.", toastStyle);
       return;
     }
+    
+    // Validate agreement
     if (!agree) {
       toast.error("You must agree before submitting.", toastStyle);
       return;
     }
+    
+    // Validate age range
     if (isNaN(ageNum) || ageNum < 7 || ageNum > 100) {
       toast.error("Age must be between 7 and 100.", toastStyle);
       return;
     }
+    
+    // Validate username format
     if (/^\d+$/.test(form.username)) {
       toast.error("Username must include at least one letter, not all numbers.", toastStyle);
       return;
@@ -110,24 +128,26 @@ const Signup = () => {
       return;
     }
 
+    // Prepare form data for submission
     const formData = new FormData();
     Object.entries(form).forEach(([key, value]) => formData.append(key, value));
     formData.append("validId", idImage);
 
     try {
       setIsSubmitting(true);
+      // Submit registration data to backend
       await axios.post(`${import.meta.env.VITE_API_URL}/auth/signup`, formData, {
         withCredentials: true,
       });
 
       toast.success("Signup successful!", toastStyle);
 
-      // ✅ After toast → wait screen → redirect
+      // Show wait screen and redirect after success
       setTimeout(() => {
         setShowWaitScreen(true);
         setTimeout(() => {
           navigate("/");
-        }, 10000);
+        }, 10000); // 10 second wait before redirect
       }, 2500);
     } catch (err) {
       toast.error(err.response?.data?.message || "Signup failed.", toastStyle);
@@ -136,7 +156,7 @@ const Signup = () => {
     }
   };
 
-  // ✅ Loading screen
+  // Loading screen component
   if (isLoading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-red-600 to-red-800">
@@ -150,43 +170,41 @@ const Signup = () => {
         </div>
         <p className="text-white text-2xl font-bold animate-blink">Loading...</p>
 
-        <style>
-          {`
-            @keyframes bounce {
-              0%, 100% { transform: translateY(0); }
-              50% { transform: translateY(-15px); }
-            }
-            .animate-bounce {
-              animation: bounce 1s infinite;
-            }
-            @keyframes spin {
-              0% { transform: rotate(0deg); }
-              100% { transform: rotate(360deg); }
-            }
-            .animate-spin {
-              animation: spin 2s linear infinite;
-            }
-            @keyframes blink {
-              0%, 50%, 100% { opacity: 1; }
-              25%, 75% { opacity: 0; }
-            }
-            .animate-blink {
-              animation: blink 1s infinite;
-            }
-            @keyframes slowblink {
-              0%, 100% { opacity: 1; }
-              50% { opacity: 0; }
-            }
-            .animate-slowblink {
-              animation: slowblink 2s infinite;
-            }
-          `}
-        </style>
+        <style jsx>{`
+          @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-15px); }
+          }
+          .animate-bounce {
+            animation: bounce 1s infinite;
+          }
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+          .animate-spin {
+            animation: spin 2s linear infinite;
+          }
+          @keyframes blink {
+            0%, 50%, 100% { opacity: 1; }
+            25%, 75% { opacity: 0; }
+          }
+          .animate-blink {
+            animation: blink 1s infinite;
+          }
+          @keyframes slowblink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+          }
+          .animate-slowblink {
+            animation: slowblink 2s infinite;
+          }
+        `}</style>
       </div>
     );
   }
 
-  // ✅ Wait screen
+  // Wait screen after successful registration
   if (showWaitScreen) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-red-600 to-red-800 text-center p-6">
@@ -201,22 +219,20 @@ const Signup = () => {
           Redirecting to login...
         </p>
 
-        <style>
-          {`
-            @keyframes slowblink {
-              0%, 100% { opacity: 1; }
-              50% { opacity: 0; }
-            }
-            .animate-slowblink {
-              animation: slowblink 2s infinite;
-            }
-          `}
-        </style>
+        <style jsx>{`
+          @keyframes slowblink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+          }
+          .animate-slowblink {
+            animation: slowblink 2s infinite;
+          }
+        `}</style>
       </div>
     );
   }
 
-  // ✅ Signup form
+  // Main signup form
   return (
     <div className="min-h-screen bg-gradient-to-br from-red-500 via-red-600 to-orange-500 flex items-center justify-center p-4 relative">
       <ToastContainer newestOnTop limit={3} />
@@ -226,8 +242,7 @@ const Signup = () => {
         noValidate
         className="relative bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl w-full max-w-md p-8 space-y-6 border border-white/30"
       >
-
-
+        {/* Form Header */}
         <div className="text-center mb-4">
           <h2 className="text-2xl font-bold text-gray-800">
             Create Account
@@ -238,42 +253,44 @@ const Signup = () => {
         </div>
 
         <div className="space-y-4">
-          {/* First / Last Name */}
+          {/* Name Fields */}
           <div className="grid grid-cols-2 gap-4">
-          <input
-            type="text"
-            name="firstName"
-            placeholder="First Name"
-            value={form.firstName}
-            onChange={(e) => {
-              if (/^[a-zA-Z\s]*$/.test(e.target.value)) {
-                handleChange(e);
-              }
-            }}
-            className="w-full px-4 py-3 font-medium text-gray-900 bg-white/80 backdrop-blur-sm border-2 border-red-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-300 focus:border-red-400 transition-all"
-          />
-          <input
-            type="text"
-            name="lastName"
-            placeholder="Last Name"
-            value={form.lastName}
-            onChange={(e) => {
-              if (/^[a-zA-Z\s]*$/.test(e.target.value)) {
-                handleChange(e);
-              }
-            }}
-            className="w-full px-4 py-3 font-medium text-gray-900 bg-white/80 backdrop-blur-sm border-2 border-red-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-300 focus:border-red-400 transition-all"
-          />
+            <input
+              type="text"
+              name="firstName"
+              placeholder="First Name"
+              value={form.firstName}
+              onChange={(e) => {
+                // Allow only letters and spaces
+                if (/^[a-zA-Z\s]*$/.test(e.target.value)) {
+                  handleChange(e);
+                }
+              }}
+              className="w-full px-4 py-3 font-medium text-gray-900 bg-white/80 backdrop-blur-sm border-2 border-red-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-300 focus:border-red-400 transition-all"
+            />
+            <input
+              type="text"
+              name="lastName"
+              placeholder="Last Name"
+              value={form.lastName}
+              onChange={(e) => {
+                // Allow only letters and spaces
+                if (/^[a-zA-Z\s]*$/.test(e.target.value)) {
+                  handleChange(e);
+                }
+              }}
+              className="w-full px-4 py-3 font-medium text-gray-900 bg-white/80 backdrop-blur-sm border-2 border-red-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-300 focus:border-red-400 transition-all"
+            />
           </div>
 
-          {/* Age */}
+          {/* Age Input */}
           <input
             type="text"
             name="age"
             placeholder="Age"
             value={form.age}
             onChange={(e) => {
-              // ✅ Allow only digits
+              // Allow only digits
               if (/^\d*$/.test(e.target.value)) {
                 handleChange(e);
               }
@@ -281,7 +298,7 @@ const Signup = () => {
             className="w-full px-4 py-3 font-medium text-gray-900 bg-white/80 backdrop-blur-sm border-2 border-red-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-300 focus:border-red-400 transition-all"
           />
 
-          {/* Username */}
+          {/* Username Input */}
           <div>
             <input
               type="text"
@@ -293,7 +310,7 @@ const Signup = () => {
             />
           </div>
 
-          {/* Password */}
+          {/* Password Input with Show/Hide Toggle */}
           <div className="relative">
             <input
               type={showPassword ? "text" : "password"}
@@ -312,7 +329,7 @@ const Signup = () => {
             </button>
           </div>
 
-          {/* Contact */}
+          {/* Contact Number Input */}
           <input
             type="text"
             name="contactNumber"
@@ -320,13 +337,14 @@ const Signup = () => {
             value={form.contactNumber}
             onChange={(e) => {
               const value = e.target.value;
+              // Allow only 11 digits maximum
               if (/^\d{0,11}$/.test(value)) handleChange(e);
             }}
             maxLength={11}
             className="w-full px-4 py-3 font-medium text-gray-900 bg-white/80 backdrop-blur-sm border-2 border-red-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-300 focus:border-red-400 transition-all"
           />
 
-          {/* Barrio + Barangay */}
+          {/* Barangay and Barrio Selection */}
           <div className="grid grid-cols-3 gap-4">
             <input
               type="text"
@@ -366,7 +384,7 @@ const Signup = () => {
             </div>
           </div>
 
-          {/* Role */}
+          {/* Role Selection */}
           <select
             name="role"
             value={form.role}
@@ -377,7 +395,7 @@ const Signup = () => {
             <option value="responder">Responder</option>
           </select>
 
-          {/* Upload ID */}
+          {/* ID Upload Section */}
           <div>
             <label
               htmlFor="validId"
@@ -405,7 +423,7 @@ const Signup = () => {
             </div>
           </div>
 
-          {/* Agreement */}
+          {/* Terms Agreement Checkbox */}
           <label className="flex items-start space-x-3 text-sm text-gray-700">
             <input
               type="checkbox"
@@ -419,7 +437,7 @@ const Signup = () => {
             </span>
           </label>
 
-          {/* Submit */}
+          {/* Submit Button */}
           <button
             type="submit"
             disabled={isSubmitting}
@@ -430,6 +448,7 @@ const Signup = () => {
             {isSubmitting ? "Submitting..." : "Sign Up"}
           </button>
 
+          {/* Login Link */}
           <p className="text-center text-sm text-gray-600">
             Already have an account?{" "}
             <a href="/" className="text-red-600 font-semibold hover:text-red-800 hover:underline transition-colors">

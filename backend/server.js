@@ -1,15 +1,15 @@
 const express = require('express');
 const mongoose = require('mongoose');
-const cors = require('cors');
+const cors = require('cors'); // Allow cross-origin requests
 const path = require('path');
-const dotenv = require('dotenv');
-const helmet = require('helmet');
+const dotenv = require('dotenv'); // Load environment variables
+const helmet = require('helmet'); // Security headers
 const http = require('http');
-const { Server } = require('socket.io');
+const { Server } = require('socket.io'); // Real-time communication
 const { User } = require('./models');
-const cookieParser = require("cookie-parser");
+const cookieParser = require("cookie-parser"); // Handle cookies
 
-dotenv.config();
+dotenv.config(); // Load .env file
 
 const app = express();
 const PORT = process.env.PORT || 5001;
@@ -20,44 +20,43 @@ const server = http.createServer(app);
 // ✅ Allowed origins for both Express and Socket.IO
 const allowedOrigins = ['http://localhost:5173', 'http://localhost:3000', "https://zapalert.netlify.app"];
 
-// ✅ Create and configure Socket.IO server
+// ✅ Create and configure Socket.IO server for real-time features
 const io = new Server(server, {
   cors: {
-    origin: allowedOrigins,
-    methods: ['GET', 'POST'],
-    credentials: true,
+    origin: allowedOrigins, // Only these websites can connect
+    methods: ['GET', 'POST'], // Allowed HTTP methods
+    credentials: true, // Allow cookies
   },
 });
 
 // ✅ Map to store connected resident usernames to their socket IDs
-const connectedResidents = new Map();
-const connectedResponders = new Map();
+const connectedResidents = new Map(); // Track connected residents
+const connectedResponders = new Map(); // Track connected responders
 
 // ✅ Store in app context for access in routes
-app.set("io", io);
-app.set("socketMap", connectedResidents);
+app.set("io", io); // Make io available in routes
+app.set("socketMap", connectedResidents); // Make resident map available
 
-
-// ✅ Socket.IO connection handling
+// ✅ Socket.IO connection handling - Real-time communication
 io.on("connection", (socket) => {
   console.log("✅ New client connected:", socket.id);
   
-  // Resident joins
+  // Resident joins - Store their connection
   socket.on("join-resident", (username) => {
     connectedResidents.set(username, socket.id);
     console.log(`📍 Resident ${username} connected with socket ID: ${socket.id}`);
   });
   
-  // Responder joins - store both ID and name
+  // Responder joins - Store their connection with ID and name
   socket.on("join-responder", (responderData) => {
     const { responderId, responderName } = responderData;
-    socket.responderId = responderId;
-    socket.responderName = responderName; // Store responder name for filtering
+    socket.responderId = responderId; // Attach ID to socket
+    socket.responderName = responderName; // Attach name to socket
     connectedResponders.set(responderId, socket.id);
     console.log(`📍 Responder ${responderName} (${responderId}) connected with socket ID: ${socket.id}`);
   });
   
-  // Disconnect cleanup
+  // Disconnect cleanup - Remove from tracking when user disconnects
   socket.on("disconnect", () => {
     for (let [username, id] of connectedResidents.entries()) {
       if (id === socket.id) {
@@ -76,64 +75,64 @@ io.on("connection", (socket) => {
   });
 });
 
-// ✅ Middleware
+// ✅ Middleware setup
 app.use(cors({
   origin: function (origin, callback) {
     if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
+      callback(null, true); // Allow request
     } else {
-      callback(new Error('Not allowed by CORS'));
+      callback(new Error('Not allowed by CORS')); // Block request
     }
   },
-  credentials: true,
+  credentials: true, // Allow cookies
 }));
-app.options('*', cors()); // optional: for preflight requests
+app.options('*', cors()); // Handle preflight requests
 
-app.use(cookieParser());
+app.use(cookieParser()); // Parse cookies from requests
 app.use(helmet({
-  crossOriginResourcePolicy: { policy: "cross-origin" }
+  crossOriginResourcePolicy: { policy: "cross-origin" } // Allow cross-origin resources
 }));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json()); // Parse JSON request bodies
+app.use(express.urlencoded({ extended: true })); // Parse URL-encoded request bodies
 
-// ✅ Serve public static files
+// ✅ Serve public static files (like images, CSS, JS)
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ✅ Fix CORS for uploaded images
+// ✅ Fix CORS for uploaded images - Allow access to ID images
 app.use('/uploads', (req, res, next) => {
-  res.setHeader('Access-Control-Allow-Origin', '*'); // Or restrict to Netlify URL
+  res.setHeader('Access-Control-Allow-Origin', '*'); // Allow any website to access images
   res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
   res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
   next();
-}, express.static(path.join(__dirname, 'uploads')));
+}, express.static(path.join(__dirname, 'uploads'))); // Serve uploaded files
 
-// ✅ MongoDB Connection
+// ✅ MongoDB Connection - Connect to database
 mongoose.connect(process.env.MONGO_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 })
 .then(() => {
-  console.log('Connected to MongoDB successfully');
+  console.log('Connected to MongoDB successfully'); // Success message
 })
 .catch((error) => {
   console.error('❌ MongoDB connection error:', error);
-  process.exit(1);
+  process.exit(1); // Exit if database connection fails
 });
 
-// ✅ Routes
+// ✅ Routes - Connect all API endpoints
 const authRoutes = require('./routes/auth');
-app.use('/api/auth', authRoutes);
+app.use('/api/auth', authRoutes); // Authentication routes
 
 const reportRoutes = require("./routes/reports");
-app.use("/api/reports", reportRoutes);
+app.use("/api/reports", reportRoutes); // Emergency report routes
 
 const emergenciesRoutes = require("./routes/emergencies"); 
-app.use("/api/emergencies", emergenciesRoutes); 
+app.use("/api/emergencies", emergenciesRoutes); // Emergency data routes
 
-const announcementRoute = require("./routes/announcement")(io);
+const announcementRoute = require("./routes/announcement")(io); // Announcement routes with socket.io
 app.use("/api/announcement", announcementRoute);
 
-// ✅ Health Check
+// ✅ Health Check - Simple endpoint to test if server is working
 app.get('/api/health', (req, res) => {
   res.status(200).json({
     status: 'OK',
@@ -141,7 +140,7 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// ✅ Root
+// ✅ Root endpoint - Welcome message
 app.get('/', (req, res) => {
   res.json({ 
     message: 'ZAPALERT Backend API is running! 🚀',
@@ -153,7 +152,7 @@ app.get('/', (req, res) => {
   });
 });
 
-// ✅ Error Handler
+// ✅ Error Handler - Catch all errors
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).json({ 
@@ -163,7 +162,7 @@ app.use((err, req, res, next) => {
   });
 });
 
-// ✅ 404 Catch
+// ✅ 404 Catch - Handle unknown routes
 app.use('*', (req, res) => {
   res.status(404).json({ 
     success: false, 
@@ -171,12 +170,12 @@ app.use('*', (req, res) => {
   });
 });
 
-// ✅ Start Server
+// ✅ Start Server - Launch the application
 server.listen(PORT, () => {
   const serverUrl =
     process.env.NODE_ENV === "production"
-      ? "https://zapalert-backend.onrender.com"
-      : `http://localhost:${PORT}`;
+      ? "https://zapalert-backend.onrender.com" // Production URL
+      : `http://localhost:${PORT}`; // Development URL
 
   console.log(`ZAPALERT Backend running on port ${PORT}`);
   console.log(`Server URL: ${serverUrl}`);

@@ -1,49 +1,34 @@
+/* Main app container - centers content with max width */
 #root {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
+  max-width: 1280px;      /* Prevents content from getting too wide on large screens */
+  margin: 0 auto;         /* Centers the container horizontally */
+  padding: 2rem;          /* Adds space around the content */
+  text-align: center;     /* Centers text by default */
 }
 
+/* Logo styling with hover effects */
 .logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
+  height: 6em;            /* Fixed height for consistency */
+  padding: 1.5em;         /* Space around the logo */
+  transition: filter 300ms; /* Smooth glow effect on hover */
 }
 .logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
+  filter: drop-shadow(0 0 2em #646cffaa); /* Blue glow when hovering */
 }
 
+/* Continuous spinning animation */
 @keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+  from { transform: rotate(0deg); }   /* Start position */
+  to { transform: rotate(360deg); }   /* Full rotation */
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
-  }
-}
-
+/* Card component - used for content containers */
 .card {
-  padding: 2em;
+  padding: 2em;           /* Generous padding inside cards */
 }
 
-.read-the-docs {
-  color: #888;
-}
-
+/* Special styling for important map markers */
 .highlighted-marker {
-  filter: drop-shadow(0 0 6px rgba(255, 204, 0, 0.8));
-  z-index: 1000 !important;
+  filter: drop-shadow(0 0 6px rgba(255, 204, 0, 0.8)); /* Yellow glow */
+  z-index: 1000 !important; /* Ensures marker appears above other elements */
 }
-
-/* Remove the pulse animation to keep normal behavior */

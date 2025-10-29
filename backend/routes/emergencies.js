@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 
-// Temporary mock emergency data
+// Temporary mock emergency data (for testing)
 const mockEmergencies = [
   {
     id: 1,
@@ -21,8 +21,9 @@ const mockEmergencies = [
   },
 ];
 
+// GET all emergencies - Return the mock data
 router.get("/", (req, res) => {
-  res.json(mockEmergencies); // Send array directly
+  res.json(mockEmergencies); // Send emergency array directly
 });
 
 module.exports = router;

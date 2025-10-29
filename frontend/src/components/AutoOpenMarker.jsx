@@ -4,49 +4,49 @@ import L from "leaflet";
 import axios from "../api/axios";
 
 const AutoOpenMarker = ({
-  report,
-  icon,
-  onTheWay,
-  onResponded,
-  onDecline,
-  onTheWayIds,
-  arrivedIds,
-  setOnTheWayIds,
-  setArrivedIds,
-  isHighlighted
+  report,           // Emergency report data
+  icon,             // Default marker icon
+  onTheWay,         // Function to mark as on the way
+  onResponded,      // Function to mark as responded
+  onDecline,        // Function to decline report
+  onTheWayIds,      // Array of reports marked "on the way"
+  arrivedIds,       // Array of reports marked "arrived"
+  setOnTheWayIds,   // Set state for onTheWayIds
+  setArrivedIds,    // Set state for arrivedIds
+  isHighlighted     // Whether this marker should be highlighted
 }) => {
-  const markerRef = useRef(null);
-  const popupRef = useRef(null);
-  const hasOpenedRef = useRef(false);
-  const [popupOpen, setPopupOpen] = useState(false);
+  const markerRef = useRef(null);       // Reference to the Leaflet marker
+  const popupRef = useRef(null);        // Reference to the popup
+  const hasOpenedRef = useRef(false);   // Track if popup has opened
+  const [popupOpen, setPopupOpen] = useState(false); // Track popup open state
 
-  // Get position from either location.coordinates or latitude/longitude
+  // Get position from report data (handles different data formats)
   const position = report.location?.coordinates 
     ? [report.location.coordinates[0], report.location.coordinates[1]]
     : [report.latitude, report.longitude];
 
-  // Determine states
+  // Check if this report is in various states
   const isOnTheWay = onTheWayIds.includes(report._id);
   const isArrived = arrivedIds.includes(report._id);
 
-  // Only auto-open if this is the highlighted marker
+  // Auto-open popup when marker becomes highlighted
   useEffect(() => {
     if (isHighlighted && markerRef.current && !hasOpenedRef.current) {
       const timer = setTimeout(() => {
         if (markerRef.current) {
-          markerRef.current.openPopup();
-          hasOpenedRef.current = true;
-          setPopupOpen(true);
+          markerRef.current.openPopup(); // Open the popup
+          hasOpenedRef.current = true;   // Mark as opened
+          setPopupOpen(true);            // Update state
         }
       }, 100);
       return () => clearTimeout(timer);
     }
   }, [isHighlighted]);
 
-  // Close other popups when this one becomes highlighted
+  // Close other popups and open this one when highlighted
   useEffect(() => {
     if (isHighlighted && markerRef.current) {
-      // Close all other popups first
+      // Close all other popups on the map
       const map = markerRef.current._map;
       if (map) {
         map.eachLayer((layer) => {
@@ -56,7 +56,7 @@ const AutoOpenMarker = ({
         });
       }
       
-      // Then open this one
+      // Then open this popup
       const timer = setTimeout(() => {
         if (markerRef.current) {
           markerRef.current.openPopup();
@@ -67,10 +67,11 @@ const AutoOpenMarker = ({
     }
   }, [isHighlighted]);
 
+  // Handle "On The Way" button click
   const handleOnTheWay = () => {
-    onTheWay(report._id, report);
-    if (!isOnTheWay) setOnTheWayIds((prev) => [...prev, report._id]);
-    // When action is taken, remove highlight and use normal icon
+    onTheWay(report._id, report); // Call parent function
+    if (!isOnTheWay) setOnTheWayIds((prev) => [...prev, report._id]); // Add to on the way list
+    // Reopen popup after action
     setTimeout(() => {
       if (markerRef.current) {
         markerRef.current.openPopup();
@@ -78,13 +79,15 @@ const AutoOpenMarker = ({
     }, 0);
   };
 
+  // Handle "Arrived" button click
   const handleArrived = async () => {
     try {
       await axios.patch(`/reports/${report._id}/arrived`, {}, { withCredentials: true });
-      if (!isArrived) setArrivedIds((prev) => [...prev, report._id]);
+      if (!isArrived) setArrivedIds((prev) => [...prev, report._id]); // Add to arrived list
     } catch (err) {
       console.error("Arrived notify failed", err);
     }
+    // Reopen popup after action
     setTimeout(() => {
       if (markerRef.current) {
         markerRef.current.openPopup();
@@ -92,31 +95,35 @@ const AutoOpenMarker = ({
     }, 0);
   };
 
+  // Handle "Responded" button click
   const handleResponded = () => onResponded(report._id);
+
+  // Handle "Decline" button click
   const handleDecline = () => onDecline(report._id);
 
-  // Handle popup events
+  // Handle popup opening
   const handlePopupOpen = () => {
     setPopupOpen(true);
   };
 
+  // Handle popup closing
   const handlePopupClose = () => {
     setPopupOpen(false);
-    hasOpenedRef.current = false;
+    hasOpenedRef.current = false; // Reset for next time
   };
 
-  // Enhanced icon logic - only show selected.png when popup is open AND it's highlighted
+  // Determine which icon to show based on status and highlight state
   const getCurrentIcon = () => {
-    // If popup is closed, use normal icons regardless of highlight status
+    // If popup is closed, use normal status icons
     if (!popupOpen) {
       return isArrived
         ? new L.Icon({ iconUrl: "/icons/arrived.png", iconSize: [35, 35] })
         : isOnTheWay
           ? new L.Icon({ iconUrl: "/icons/otw.png", iconSize: [35, 35] })
-          : icon;
+          : icon; // Default icon
     }
     
-    // If popup is open and this is highlighted, show selected icon
+    // If popup is open and highlighted, show special selected icon
     if (isHighlighted && popupOpen) {
       return new L.Icon({ 
         iconUrl: "/icons/selected.png",
@@ -133,7 +140,7 @@ const AutoOpenMarker = ({
         : icon;
   };
 
-  // Format timestamp
+  // Format timestamp to Philippine time
   const formatPHTime = (isoString) =>
     new Date(isoString).toLocaleString("en-PH", {
       timeZone: "Asia/Manila",
@@ -152,8 +159,8 @@ const AutoOpenMarker = ({
       icon={getCurrentIcon()} 
       ref={markerRef}
       eventHandlers={{
-        popupopen: handlePopupOpen,
-        popupclose: handlePopupClose
+        popupopen: handlePopupOpen,  // When popup opens
+        popupclose: handlePopupClose // When popup closes
       }}
     >
       <Popup 
@@ -161,19 +168,21 @@ const AutoOpenMarker = ({
         ref={popupRef}
       >
         <div className="text-sm">
-          {/* Highlight indicator - only show when popup is open and highlighted */}
+          {/* Show highlight banner only when popup is open and marker is highlighted */}
           {isHighlighted && popupOpen && (
             <div className="text-yellow-700 font-bold mb-2 text-center bg-yellow-200 py-1 rounded-t-lg mx-4 -mx-5 -mt-3">
               ⭐ SELECTED EMERGENCY ⭐
             </div>
           )}
           
+          {/* Report header */}
           <div className="flex items-center justify-between">
             <strong className={isHighlighted && popupOpen ? "text-yellow-800" : ""}>
               {report.type} Report
             </strong>
           </div>
 
+          {/* Report details */}
           <div>{report.description}</div>
           <div className="text-gray-500">By: {report.firstName} {report.lastName}</div>
           <div className="text-gray-500">Age: {report.age || "N/A"}</div>
@@ -182,9 +191,9 @@ const AutoOpenMarker = ({
             𝗥𝗲𝗽𝗼𝗿𝘁𝗲𝗱 𝗮𝘁: {formatPHTime(report.createdAt)}
           </div>
 
-          {/* Button Flow */}
+          {/* Action buttons - change based on current status */}
           <div className="flex flex-col gap-1 mt-2">
-            {/* Step 1: Initial */}
+            {/* Step 1: Initial state - not on the way, not arrived */}
             {!isOnTheWay && !isArrived && (
               <div className="flex gap-1 w-full">
                 <button
@@ -202,7 +211,7 @@ const AutoOpenMarker = ({
               </div>
             )}
 
-            {/* Step 2: After ON THE WAY */}
+            {/* Step 2: On the way but not arrived yet */}
             {isOnTheWay && !isArrived && (
               <div className="flex gap-1 w-full">
                 <button
@@ -226,7 +235,7 @@ const AutoOpenMarker = ({
               </div>
             )}
 
-            {/* Step 3: After ARRIVED */}
+            {/* Step 3: Arrived at location */}
             {isArrived && (
               <div className="flex gap-1 w-full">
                 <button

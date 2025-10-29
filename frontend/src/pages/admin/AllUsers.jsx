@@ -6,21 +6,22 @@ const BASE_URL = import.meta.env.VITE_API_URL;
 const BASE_IMAGE_URL = import.meta.env.VITE_IMAGE_URL || "https://zapalert-backend.onrender.com";
 
 const AllUsers = () => {
-  const [allUsers, setAllUsers] = useState([]);
-  const [filteredUsers, setFilteredUsers] = useState([]);
-  const [selectedUser, setSelectedUser] = useState(null);
-  const [roleFilter, setRoleFilter] = useState("All");
-  const [statusFilter, setStatusFilter] = useState("All");
-  const [barangayFilter, setBarangayFilter] = useState("All");
-  const [barrioFilter, setBarrioFilter] = useState("All");
-  const [searchUsername, setSearchUsername] = useState("");
-  const [selectedTab, setSelectedTab] = useState("Profile");
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [userToDelete, setUserToDelete] = useState(null);
-  const [adminPassword, setAdminPassword] = useState("");
-  const [showDeletedModal, setShowDeletedModal] = useState(false);
-  const [deletedAccounts, setDeletedAccounts] = useState([]);
+  const [allUsers, setAllUsers] = useState([]); // All registered users
+  const [filteredUsers, setFilteredUsers] = useState([]); // Filtered users for display
+  const [selectedUser, setSelectedUser] = useState(null); // Currently selected user for details
+  const [roleFilter, setRoleFilter] = useState("All"); // Filter by role
+  const [statusFilter, setStatusFilter] = useState("All"); // Filter by status
+  const [barangayFilter, setBarangayFilter] = useState("All"); // Filter by barangay
+  const [barrioFilter, setBarrioFilter] = useState("All"); // Filter by barrio
+  const [searchUsername, setSearchUsername] = useState(""); // Search term
+  const [selectedTab, setSelectedTab] = useState("Profile"); // Active tab in user details
+  const [showDeleteModal, setShowDeleteModal] = useState(false); // Show delete confirmation
+  const [userToDelete, setUserToDelete] = useState(null); // User to be deleted
+  const [adminPassword, setAdminPassword] = useState(""); // Admin password for deletion
+  const [showDeletedModal, setShowDeletedModal] = useState(false); // Show deleted accounts modal
+  const [deletedAccounts, setDeletedAccounts] = useState([]); // Recently deleted accounts
 
+  // Fetch all users from API
   const fetchAllUsers = async () => {
     try {
       const res = await axios.get(`${BASE_URL}/auth/all-users`, { withCredentials: true });
@@ -31,7 +32,7 @@ const AllUsers = () => {
     }
   };
 
-  // Load deleted accounts from localStorage
+  // Load deleted accounts from localStorage on component mount
   useEffect(() => {
     const savedDeletedAccounts = localStorage.getItem('deletedAccounts');
     if (savedDeletedAccounts) {
@@ -39,12 +40,12 @@ const AllUsers = () => {
     }
   }, []);
 
-  // Save deleted account when user is deleted
+  // Save deleted account to localStorage when user is deleted
   const saveDeletedAccount = (user) => {
     const deletedAccount = {
-      ...user,
-      deletedAt: new Date().toISOString(),
-      deletedDate: new Date().toLocaleString('en-PH', {
+      ...user, // Copy all user data
+      deletedAt: new Date().toISOString(), // Timestamp for sorting
+      deletedDate: new Date().toLocaleString('en-PH', { // Formatted date for display
         timeZone: 'Asia/Manila',
         year: 'numeric',
         month: 'long',
@@ -54,6 +55,7 @@ const AllUsers = () => {
       })
     };
     
+    // Add to beginning of array (newest first)
     const updatedDeletedAccounts = [deletedAccount, ...deletedAccounts];
     setDeletedAccounts(updatedDeletedAccounts);
     localStorage.setItem('deletedAccounts', JSON.stringify(updatedDeletedAccounts));
@@ -65,11 +67,13 @@ const AllUsers = () => {
       const fifteenDaysAgo = new Date();
       fifteenDaysAgo.setDate(fifteenDaysAgo.getDate() - 15);
       
+      // Filter out accounts deleted more than 15 days ago
       const filteredAccounts = deletedAccounts.filter(account => {
         const deletedDate = new Date(account.deletedAt);
         return deletedDate > fifteenDaysAgo;
       });
       
+      // Update if any were removed
       if (filteredAccounts.length !== deletedAccounts.length) {
         setDeletedAccounts(filteredAccounts);
         localStorage.setItem('deletedAccounts', JSON.stringify(filteredAccounts));
@@ -79,17 +83,21 @@ const AllUsers = () => {
     cleanOldDeletedAccounts();
   }, [deletedAccounts]);
 
+  // Fetch users on component mount
   useEffect(() => {
     fetchAllUsers();
   }, []);
 
+  // Filter users whenever filters or search change
   useEffect(() => {
     const filtered = allUsers.filter((user) => {
+      // Apply all active filters
       const roleMatch = roleFilter === "All" || user.role?.toLowerCase() === roleFilter.toLowerCase();  
       const statusMatch = statusFilter === "All" || user.status === statusFilter.toLowerCase();
       const barangayMatch = barangayFilter === "All" || user.barangay === barangayFilter;
       const barrioMatch = barrioFilter === "All" || user.barrio === barrioFilter;
 
+      // Apply search across multiple fields
       const text = searchUsername.toLowerCase();
       const matchesSearch =
         user.username?.toLowerCase().includes(text) ||
@@ -106,42 +114,48 @@ const AllUsers = () => {
     setFilteredUsers(filtered);
   }, [roleFilter, statusFilter, barangayFilter, barrioFilter, searchUsername, allUsers]);
 
+  // Close modal when Escape key is pressed
   useEffect(() => {
     const handleEsc = (e) => e.key === "Escape" && setSelectedUser(null);
     window.addEventListener("keydown", handleEsc);
     return () => window.removeEventListener("keydown", handleEsc);
   }, []);
 
+  // Get color class for role badges
   const getRoleColor = (role) => {
     return role === "responder" ? "bg-red-100 text-red-800" : "bg-blue-100 text-blue-800";
   };
 
+  // Get color class for status badges
   const getStatusColor = (status) => {
     return status === "approved" ? "bg-green-100 text-green-800" : "bg-orange-100 text-orange-800";
   };
 
+  // Approve a pending user
   const handleApprove = async (id) => {
     if (!window.confirm("Are you sure you want to approve this user?")) return;
     try {
       await axios.patch(`${BASE_URL}/auth/approve/${id}`, {}, { withCredentials: true });
-      fetchAllUsers();
-      setSelectedUser(null);
+      fetchAllUsers(); // Refresh the list
+      setSelectedUser(null); // Close details modal
     } catch (error) {
       console.error("Approve failed", error);
     }
   };
 
+  // Reject a pending user
   const handleReject = async (id) => {
     if (!window.confirm("Are you sure you want to reject this user?")) return;
     try {
       await axios.delete(`${BASE_URL}/auth/reject/${id}`, { withCredentials: true });
-      fetchAllUsers();
-      setSelectedUser(null);
+      fetchAllUsers(); // Refresh the list
+      setSelectedUser(null); // Close details modal
     } catch (error) {
       console.error("Reject failed", error);
     }
   };
 
+  // Delete an approved user (requires admin password)
   const handleDelete = async () => {
     if (!adminPassword) {
       toast.error("Please enter your admin password.");
@@ -149,47 +163,50 @@ const AllUsers = () => {
     }
 
     try {
-      // CHANGE THIS LINE: Use the new delete endpoint
+      // Use the new delete endpoint that requires admin password
       await axios.delete(`${BASE_URL}/auth/delete/${userToDelete._id}`, { 
-        data: { adminPassword },
+        data: { adminPassword }, // Send password in request body
         withCredentials: true 
       });
       
-      // Save to deleted accounts
+      // Save to deleted accounts for record keeping
       saveDeletedAccount(userToDelete);
       
-      fetchAllUsers();
-      setSelectedUser(null);
-      setShowDeleteModal(false);
-      setAdminPassword("");
+      fetchAllUsers(); // Refresh the list
+      setSelectedUser(null); // Close details modal
+      setShowDeleteModal(false); // Close delete modal
+      setAdminPassword(""); // Clear password field
       toast.success("User deleted successfully.");
     } catch (error) {
       toast.error(error.response?.data?.message || "Failed to delete user.");
     }
   };
 
-    const barangayOptions = [...new Set(allUsers.map((u) => u.barangay))];
-    const barrioOptions = [...new Set(allUsers.map((u) => u.barrio).filter(Boolean))].sort();
+  // Get unique values for filter dropdowns
+  const barangayOptions = [...new Set(allUsers.map((u) => u.barangay))];
+  const barrioOptions = [...new Set(allUsers.map((u) => u.barrio).filter(Boolean))].sort();
 
-    return (
-      <div className="bg-gradient-to-br from-white via-red-50 to-orange-50 rounded-2xl shadow-lg p-6">
-  <div className="flex justify-between items-center mb-6">
-    <h1 className="text-2xl font-bold text-gray-800">All Registered Users</h1>
-    
-    {/* View Deleted Accounts Button */}
-    <button
-      onClick={() => setShowDeletedModal(true)}
-      className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-gray-600 to-gray-700 text-white rounded-xl hover:from-gray-700 hover:to-gray-800 transition-all shadow-lg font-semibold text-sm"
-    >
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-      </svg>
-      Deleted Accounts ({deletedAccounts.length})
-    </button>
-  </div>
+  return (
+    <div className="bg-gradient-to-br from-white via-red-50 to-orange-50 rounded-2xl shadow-lg p-6">
+      {/* Header with View Deleted Accounts Button */}
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold text-gray-800">All Registered Users</h1>
+        
+        {/* View Deleted Accounts Button */}
+        <button
+          onClick={() => setShowDeletedModal(true)}
+          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-gray-600 to-gray-700 text-white rounded-xl hover:from-gray-700 hover:to-gray-800 transition-all shadow-lg font-semibold text-sm"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+          Deleted Accounts ({deletedAccounts.length})
+        </button>
+      </div>
 
-      {/* Filters */}
+      {/* Filter Controls */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+        {/* Role Filter */}
         <select 
           className="p-3 border-2 border-red-200 rounded-xl bg-white/80 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-red-200 focus:border-red-400"
           value={roleFilter} 
@@ -200,6 +217,7 @@ const AllUsers = () => {
           <option value="Responder">Responder</option>
         </select>
 
+        {/* Status Filter */}
         <select 
           className="p-3 border-2 border-red-200 rounded-xl bg-white/80 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-red-200 focus:border-red-400"
           value={statusFilter} 
@@ -210,6 +228,7 @@ const AllUsers = () => {
           <option value="Pending">Pending</option>
         </select>
 
+        {/* Barangay Filter */}
         <select 
           className="p-3 border-2 border-red-200 rounded-xl bg-white/80 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-red-200 focus:border-red-400"
           value={barangayFilter} 
@@ -221,6 +240,7 @@ const AllUsers = () => {
           ))}
         </select>
 
+        {/* Barrio Filter */}
         <select 
           className="p-3 border-2 border-red-200 rounded-xl bg-white/80 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-red-200 focus:border-red-400"
           value={barrioFilter} 
@@ -232,6 +252,7 @@ const AllUsers = () => {
           ))}
         </select>
 
+        {/* Search Input */}
         <input
           type="text"
           placeholder="Search users..."
@@ -241,6 +262,7 @@ const AllUsers = () => {
         />
       </div>
 
+      {/* Users Table */}
       {filteredUsers.length === 0 ? (
         <div className="text-center py-12 bg-white/80 rounded-2xl shadow-inner">
           <p className="text-gray-600 text-lg">No matching users found.</p>
@@ -265,13 +287,13 @@ const AllUsers = () => {
                 <tr
                   key={user._id}
                   className={`border-b border-red-100 hover:bg-red-50/50 cursor-pointer transition-all ${
-                    selectedUser?._id === user._id ? "bg-red-100" : ""
+                    selectedUser?._id === user._id ? "bg-red-100" : "" // Highlight selected row
                   }`}
                   onClick={() => {
-                    setSelectedUser(user);
-                    setSelectedTab("Profile");
-                    setAdminPassword("");
-                    setShowDeleteModal(false);
+                    setSelectedUser(user); // Show user details
+                    setSelectedTab("Profile"); // Reset to profile tab
+                    setAdminPassword(""); // Clear password field
+                    setShowDeleteModal(false); // Close any open modals
                   }}
                   >
                   <td className="py-3 px-4 font-medium">{user.firstName} {user.lastName}</td>
@@ -297,13 +319,16 @@ const AllUsers = () => {
         </div>
       )}
 
+      {/* User Details Modal */}
       {selectedUser && (
         <div className="fixed inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm z-50">
           <div className="bg-gradient-to-br from-white via-red-50 to-orange-50 rounded-2xl p-6 w-full max-w-md sm:max-w-lg max-h-[80vh] overflow-y-auto relative shadow-2xl border border-red-200">
+            {/* Close Button */}
             <button className="absolute top-4 right-4 text-2xl text-red-600 hover:text-red-800 transition-colors" onClick={() => setSelectedUser(null)}>×</button>
 
             <h2 className="text-xl font-bold mb-4 text-gray-800">User Information</h2>
 
+            {/* Tab Navigation */}
             <div className="mb-4">
               <div className="flex border-b border-red-200">
                 {["Profile", "Valid ID", "Actions"].map((tab) => (
@@ -311,8 +336,8 @@ const AllUsers = () => {
                     key={tab}
                     className={`px-4 py-2 font-semibold transition-all ${
                       selectedTab === tab 
-                        ? "border-b-2 border-red-600 text-red-600" 
-                        : "text-gray-600 hover:text-red-600"
+                        ? "border-b-2 border-red-600 text-red-600" // Active tab style
+                        : "text-gray-600 hover:text-red-600" // Inactive tab style
                     }`}
                     onClick={() => setSelectedTab(tab)}
                   >
@@ -322,6 +347,7 @@ const AllUsers = () => {
               </div>
             </div>
 
+            {/* Profile Tab Content */}
             {selectedTab === "Profile" && (
               <div className="space-y-3 text-sm">
                 <p><strong>Name:</strong> {selectedUser.firstName} {selectedUser.lastName}</p>
@@ -335,6 +361,7 @@ const AllUsers = () => {
               </div>
             )}
 
+            {/* Valid ID Tab Content */}
             {selectedTab === "Valid ID" && (
               <div className="mt-4 flex justify-center">
                 {selectedUser.idImagePath ? (
@@ -359,8 +386,10 @@ const AllUsers = () => {
               </div>
             )}
 
+            {/* Actions Tab Content */}
             {selectedTab === "Actions" && (
               <div className="mt-6 space-y-4">
+                {/* For pending users - show approve/reject buttons */}
                 {selectedUser.status === "pending" && (
                   <div className="flex gap-3">
                     <button 
@@ -377,6 +406,7 @@ const AllUsers = () => {
                     </button>
                   </div>
                 )}
+                {/* For approved users - show delete option */}
                 {selectedUser.status === "approved" && (
                   <div className="mt-6 space-y-4">
                     <div className="text-center p-4 bg-red-50 rounded-xl border border-red-200">
@@ -389,8 +419,8 @@ const AllUsers = () => {
                     <button
                       className="w-full py-3 px-4 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-xl hover:from-red-700 hover:to-red-800 transition-all shadow-lg font-semibold"
                       onClick={() => {
-                        setUserToDelete(selectedUser);
-                        setShowDeleteModal(true);
+                        setUserToDelete(selectedUser); // Set user to delete
+                        setShowDeleteModal(true); // Show confirmation modal
                         setAdminPassword(""); // Clear previous password
                       }}
                     >
@@ -403,6 +433,7 @@ const AllUsers = () => {
           </div>
         </div>
       )}
+
       {/* Delete Confirmation Modal */}
       {showDeleteModal && userToDelete && (
         <div className="fixed inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm z-[60]">
@@ -410,8 +441,8 @@ const AllUsers = () => {
             <button 
               className="absolute top-4 right-4 text-2xl text-red-600 hover:text-red-800 transition-colors"
               onClick={() => {
-                setShowDeleteModal(false);
-                setAdminPassword("");
+                setShowDeleteModal(false); // Close modal
+                setAdminPassword(""); // Clear password
               }}
             >
               ×
@@ -419,6 +450,7 @@ const AllUsers = () => {
 
             <h2 className="text-xl font-bold mb-4 text-gray-800">Confirm Deletion</h2>
             
+            {/* User to be deleted info */}
             <div className="mb-4 p-4 bg-red-50 rounded-xl border border-red-200">
               <p className="text-red-700 font-semibold">You are about to delete:</p>
               <p className="text-gray-800 text-lg font-medium">{userToDelete.firstName} {userToDelete.lastName}</p>
@@ -431,6 +463,7 @@ const AllUsers = () => {
                 Enter your <strong>password</strong> to confirm deletion:
               </p>
               
+              {/* Password input for security */}
               <input
                 type="password"
                 value={adminPassword}
@@ -439,6 +472,7 @@ const AllUsers = () => {
                 className="w-full p-3 border-2 border-red-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-200 focus:border-red-400"
               />
 
+              {/* Action buttons */}
               <div className="flex gap-3">
                 <button
                   className="flex-1 py-3 bg-gray-400 text-white rounded-xl hover:bg-gray-500 transition-all font-semibold"
@@ -452,11 +486,11 @@ const AllUsers = () => {
                 <button
                   className={`flex-1 py-3 rounded-xl text-white font-semibold transition-all ${
                     adminPassword
-                      ? "bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800"
-                      : "bg-gray-400 cursor-not-allowed"
+                      ? "bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800" // Enabled
+                      : "bg-gray-400 cursor-not-allowed" // Disabled
                   }`}
                   onClick={handleDelete}
-                  disabled={!adminPassword}
+                  disabled={!adminPassword} // Disable if no password
                 >
                   Delete User
                 </button>
@@ -465,6 +499,7 @@ const AllUsers = () => {
           </div>
         </div>
       )}
+
       {/* Deleted Accounts Modal */}
       {showDeletedModal && (
         <div className="fixed inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm z-[70]">
@@ -531,22 +566,6 @@ const AllUsers = () => {
           </div>
         </div>
       )}
-      {/* Clear All Button - Only show if there are deleted accounts 
-        {deletedAccounts.length > 0 && (
-          <button
-            onClick={() => {
-              setDeletedAccounts([]);
-              localStorage.setItem('deletedAccounts', JSON.stringify([]));
-              toast.success("All deleted accounts cleared!");
-            }}
-            className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-gray-500 to-gray-600 text-white rounded-xl hover:from-gray-600 hover:to-gray-700 transition-all shadow-lg font-semibold text-xs"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-            </svg>
-            Clear All
-          </button>
-        )}*/}
     </div>
   );
 };

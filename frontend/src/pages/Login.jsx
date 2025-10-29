@@ -1,3 +1,4 @@
+// Login.jsx
 import React, { useState, useEffect } from "react";
 import axios from "../api/axios";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -5,19 +6,22 @@ import { toast, ToastContainer, Slide } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import useNetworkStatus from "../hooks/useNetworkStatus";
 
-
+// Main login component for ZapAlert system
 const Login = () => {
   const navigate = useNavigate();
   const networkStatus = useNetworkStatus();
   const location = useLocation();
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [showModal, setShowModal] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [step, setStep] = useState(0);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showForgotPasswordTooltip, setShowForgotPasswordTooltip] = useState(false);
+  
+  // State management for form and UI
+  const [username, setUsername] = useState(""); // Stores username input
+  const [password, setPassword] = useState(""); // Stores password input
+  const [showModal, setShowModal] = useState(false); // Controls tutorial modal visibility
+  const [isLoading, setIsLoading] = useState(true); // Loading screen state
+  const [step, setStep] = useState(0); // Current step in tutorial modal
+  const [showPassword, setShowPassword] = useState(false); // Toggle password visibility
+  const [showForgotPasswordTooltip, setShowForgotPasswordTooltip] = useState(false); // Forgot password tooltip state
 
+  // Toast notification configuration
   const toastStyle = {
     toastId: "loginToast",
     position: "top-center",
@@ -43,13 +47,16 @@ const Login = () => {
     closeButton: false,
   };
 
+  // Effect for session check and initial loading
   useEffect(() => {
     const timer = setTimeout(() => setIsLoading(false), 2000);
 
+    // Check if user already has an active session
     axios
       .get("/auth/session", { withCredentials: true })
       .then((res) => {
         const { role } = res.data;
+        // Redirect to appropriate dashboard based on role
         if (
           (role === "resident" && location.pathname !== "/resident") ||
           (role === "responder" && location.pathname !== "/responder") ||
@@ -59,6 +66,7 @@ const Login = () => {
         }
       })
       .catch(() => {
+        // Show tutorial modal on first visit
         if (!localStorage.getItem("popupShown")) {
           const modalTimer = setTimeout(() => {
             setShowModal(true);
@@ -71,6 +79,7 @@ const Login = () => {
     return () => clearTimeout(timer);
   }, [navigate, location]);
 
+  // Handle login form submission
   const handleLogin = async (e) => {
     e.preventDefault();
     try {
@@ -81,7 +90,7 @@ const Login = () => {
         { withCredentials: true }
       );
       const { role } = res.data;
-      navigate(`/${role}`);
+      navigate(`/${role}`); // Redirect to role-specific dashboard
     } catch (err) {
       toast.error(
         err.response?.data?.message || "Invalid username or password",
@@ -90,6 +99,7 @@ const Login = () => {
     }
   };
 
+  // Loading screen component
   if (isLoading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-red-600 to-red-800">
@@ -103,20 +113,20 @@ const Login = () => {
         </div>
         <p className="text-white text-2xl font-bold animate-blink">Loading...</p>
 
-        <style>
-          {`
-            @keyframes bounce { 0%,100%{transform:translateY(0);}50%{transform:translateY(-15px);} }
-            .animate-bounce { animation: bounce 1s infinite; }
-            @keyframes spin { 0%{transform:rotate(0deg);}100%{transform:rotate(360deg);} }
-            .animate-spin { animation: spin 2s linear infinite; }
-            @keyframes blink { 0%,50%,100%{opacity:1;}25%,75%{opacity:0;} }
-            .animate-blink { animation: blink 1s infinite; }
-          `}
-        </style>
+        {/* Inline CSS animations for loading screen */}
+        <style jsx>{`
+          @keyframes bounce { 0%,100%{transform:translateY(0);}50%{transform:translateY(-15px);} }
+          .animate-bounce { animation: bounce 1s infinite; }
+          @keyframes spin { 0%{transform:rotate(0deg);}100%{transform:rotate(360deg);} }
+          .animate-spin { animation: spin 2s linear infinite; }
+          @keyframes blink { 0%,50%,100%{opacity:1;}25%,75%{opacity:0;} }
+          .animate-blink { animation: blink 1s infinite; }
+        `}</style>
       </div>
     );
   }
 
+  // Tutorial steps data for the modal
   const steps = [
     {
       img: null,
@@ -150,12 +160,12 @@ const Login = () => {
     <div className="min-h-screen bg-gradient-to-br from-red-500 via-red-600 to-orange-500 flex items-center justify-center p-4 relative">
       <ToastContainer newestOnTop limit={3} />
 
-      {/* Login Card */}
-        <form
-          onSubmit={handleLogin}
-          className="relative bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl w-full max-w-md px-8 pt-8 pb-4 space-y-6 border border-white/30"
-        >
-        {/* Logo & Title */}
+      {/* Login Form Card */}
+      <form
+        onSubmit={handleLogin}
+        className="relative bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl w-full max-w-md px-8 pt-8 pb-4 space-y-6 border border-white/30"
+      >
+        {/* Logo & Title Section */}
         <div className="flex flex-col items-center text-center mb-6">
           <img
             src="/icons/zapalert-logo.png"
@@ -170,7 +180,7 @@ const Login = () => {
           </p>
         </div>
 
-        {/* Guide */}
+        {/* Login Guide Section */}
         <div className="mb-4">
           <h2 className="text-2xl font-bold text-gray-800 text-left">
             Sign in
@@ -180,8 +190,9 @@ const Login = () => {
           </p>
         </div>
 
-        {/* Inputs */}
+        {/* Input Fields Section */}
         <div className="space-y-4">
+          {/* Username Input */}
           <input
             type="text"
             placeholder="Username"
@@ -190,6 +201,8 @@ const Login = () => {
             onChange={(e) => setUsername(e.target.value)}
             required
           />
+          
+          {/* Password Input with Show/Hide Toggle */}
           <div className="relative w-full">
             <input
               type={showPassword ? "text" : "password"}
@@ -208,7 +221,7 @@ const Login = () => {
             </button>
           </div>
           
-          {/* Forgot Password Note */}
+          {/* Forgot Password Tooltip */}
           <div className="flex justify-end relative -top-4 -left-1">
             <div className="relative">
               <button
@@ -222,7 +235,7 @@ const Login = () => {
                 Forgot Password?
               </button>
               
-              {/* Tooltip */}
+              {/* Tooltip Popup */}
               {showForgotPasswordTooltip && (
                 <>
                   <div 
@@ -241,7 +254,7 @@ const Login = () => {
           </div>
         </div>
 
-        {/* Login Button and Sign Up */}
+        {/* Login Button and Sign Up Link */}
         <div className="relative -top-5">
           <button
             type="submit"
@@ -262,7 +275,7 @@ const Login = () => {
         </div>
       </form>
 
-      {/* Help Button */}
+      {/* Help Button for Tutorial */}
       {!showModal && (
         <button
           type="button"
@@ -277,14 +290,14 @@ const Login = () => {
         </button>
       )}
 
-      {/* Tutorial Popup */}
+      {/* Tutorial Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
           <div
             key={step}
             className="bg-gradient-to-br from-white via-red-50 to-orange-50 rounded-3xl max-w-sm w-full mx-4 p-6 space-y-5 text-gray-800 relative shadow-2xl border border-white/30 transform animate-tutorial-popup"
           >
-            {/* Step 0 = Welcome */}
+            {/* Welcome Step (Step 0) */}
             {step === 0 ? (
               <>
                 <h3 className="text-2xl font-extrabold text-red-700 text-center">
@@ -306,6 +319,7 @@ const Login = () => {
               </>
             ) : (
               <>
+                {/* Tutorial Steps (1-4) */}
                 <h3 className="text-xl font-bold text-red-700 text-center">
                   {steps[step - 1].title}
                 </h3>
@@ -326,7 +340,7 @@ const Login = () => {
                   {steps[step - 1].desc}
                 </p>
 
-                {/* Navigation */}
+                {/* Navigation Buttons */}
                 <div className="flex justify-between items-center">
                   {step > 0 && (
                     <button
@@ -353,7 +367,7 @@ const Login = () => {
                   )}
                 </div>
 
-                {/* Step Indicator */}
+                {/* Step Indicator Dots */}
                 <div className="flex justify-center mt-4 space-x-2">
                   {[0, ...steps.map((_, i) => i + 1)].map((s) => (
                     <div
@@ -372,9 +386,8 @@ const Login = () => {
         </div>
       )}
 
-      {/* Animation styles */}
-      <style>
-        {`
+      {/* Animation Styles */}
+      <style jsx>{`
         @keyframes tutorial-popup {
           0% {
             opacity: 0;
@@ -395,8 +408,7 @@ const Login = () => {
         .animate-fadeSlide {
           animation: fadeSlide 0.6s ease-out forwards;
         }
-        `}
-      </style>
+      `}</style>
     </div>
   );
 };

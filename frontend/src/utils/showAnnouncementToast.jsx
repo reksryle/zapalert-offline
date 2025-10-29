@@ -1,20 +1,28 @@
+// utils/showAnnouncementToast.jsx
 import toast from "react-hot-toast";
 
+// Global audio variable to manage announcement sounds
 let announcementAudio = null;
 
+/**
+ * Displays a custom announcement toast with sound
+ * @param {string} message - The announcement message to display
+ * @param {function} onClose - Callback function to execute when toast is closed
+ */
 const showAnnouncementToast = (message, onClose = () => {}) => {
-  // Stop any previous audio
+  // Stop any previous announcement audio to prevent overlapping sounds
   if (announcementAudio) {
     announcementAudio.pause();
     announcementAudio.currentTime = 0;
   }
 
-  // Play the announcement sound
+  // Play the announcement sound effect
   announcementAudio = new Audio("/sounds/announcement.mp3");
   announcementAudio.play().catch((err) => {
     console.warn("🔇 Unable to play announcement sound:", err);
   });
 
+  // Create custom toast component
   toast.custom(
     (t) => (
       <div
@@ -23,17 +31,21 @@ const showAnnouncementToast = (message, onClose = () => {}) => {
         }`}
         style={{ wordWrap: "break-word", whiteSpace: "pre-wrap" }}
       >
+        {/* Announcement Header */}
         <div className="text-2xl font-bold mb-2 tracking-wide">ANNOUNCEMENT</div>
+        
+        {/* Announcement Message */}
         <p className="text-sm text-white break-words whitespace-pre-wrap">{message}</p>
 
+        {/* Close Button */}
         <button
           onClick={() => {
-            toast.dismiss(t.id);
+            toast.dismiss(t.id); // Dismiss the toast
             if (announcementAudio) {
-              announcementAudio.pause();
-              announcementAudio.currentTime = 0;
+              announcementAudio.pause(); // Stop audio
+              announcementAudio.currentTime = 0; // Reset audio
             }
-            onClose();
+            onClose(); // Execute callback
           }}
           className="mt-4 px-5 py-2 bg-white text-red-700 font-semibold rounded-lg hover:bg-gray-100 transition"
         >
@@ -42,8 +54,8 @@ const showAnnouncementToast = (message, onClose = () => {}) => {
       </div>
     ),
     {
-      duration: Infinity,
-      position: "top-center",
+      duration: Infinity, // Toast stays until manually closed
+      position: "top-center", // Position at top center of screen
     }
   );
 };

@@ -5,9 +5,9 @@ import toast from "react-hot-toast";
 const BASE_URL = import.meta.env.VITE_API_URL;
 
 const Announcement = () => {
-  const [message, setMessage] = useState("");
-  const [recentAnnouncements, setRecentAnnouncements] = useState([]);
-  const [showAnnouncementsModal, setShowAnnouncementsModal] = useState(false);
+  const [message, setMessage] = useState(""); // Announcement text
+  const [recentAnnouncements, setRecentAnnouncements] = useState([]); // History of announcements
+  const [showAnnouncementsModal, setShowAnnouncementsModal] = useState(false); // Control modal visibility
 
   // Load announcements from localStorage on component mount
   useEffect(() => {
@@ -23,11 +23,13 @@ const Announcement = () => {
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
       
+      // Filter out old announcements
       const filteredAnnouncements = recentAnnouncements.filter(announcement => {
         const announcementDate = new Date(announcement.postedAt);
         return announcementDate > thirtyDaysAgo;
       });
       
+      // Update if any were removed
       if (filteredAnnouncements.length !== recentAnnouncements.length) {
         setRecentAnnouncements(filteredAnnouncements);
         localStorage.setItem('recentAnnouncements', JSON.stringify(filteredAnnouncements));
@@ -37,17 +39,19 @@ const Announcement = () => {
     cleanOldAnnouncements();
   }, [recentAnnouncements]);
 
+  // Send announcement to all users
   const handlePost = async () => {
     if (!message.trim()) return toast.error("Announcement is empty");
 
     try {
+      // Send announcement to backend
       await axios.post(`${BASE_URL}/announcement`, { message }, { withCredentials: true });
       
-      // Save to recent announcements
+      // Save to recent announcements history
       const newAnnouncement = {
         message: message.trim(),
-        postedAt: new Date().toISOString(),
-        postedDate: new Date().toLocaleString('en-PH', {
+        postedAt: new Date().toISOString(), // Timestamp for sorting
+        postedDate: new Date().toLocaleString('en-PH', { // Formatted date for display
           timeZone: 'Asia/Manila',
           year: 'numeric',
           month: 'long',
@@ -57,12 +61,13 @@ const Announcement = () => {
         })
       };
       
+      // Add to beginning of array (newest first)
       const updatedAnnouncements = [newAnnouncement, ...recentAnnouncements];
       setRecentAnnouncements(updatedAnnouncements);
       localStorage.setItem('recentAnnouncements', JSON.stringify(updatedAnnouncements));
       
       toast.success("Announcement sent to all users!");
-      setMessage("");
+      setMessage(""); // Clear the textarea
     } catch (err) {
       console.error(err);
       toast.error("Failed to send announcement");
@@ -71,6 +76,7 @@ const Announcement = () => {
 
   return (
     <div className="bg-gradient-to-br from-white via-red-50 to-orange-50 rounded-2xl shadow-lg p-6 max-w-xl mx-auto border border-red-200">
+      {/* Header with Recent Announcements Button */}
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold text-gray-800">Public Announcement</h2>
         
@@ -86,6 +92,7 @@ const Announcement = () => {
         </button>
       </div>
 
+      {/* Announcement Textarea */}
       <textarea
         className="w-full p-4 border-2 border-red-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-200 focus:border-red-400 bg-white/80 backdrop-blur-sm resize-none text-sm"
         rows={5}
@@ -94,6 +101,7 @@ const Announcement = () => {
         onChange={(e) => setMessage(e.target.value)}
       />
 
+      {/* Post Button */}
       <button
         className="w-full mt-4 bg-gradient-to-r from-red-500 to-orange-500 text-white py-3 px-6 rounded-xl font-semibold hover:from-red-600 hover:to-orange-600 transition-all duration-300 shadow-lg hover:shadow-xl"
         onClick={handlePost}
@@ -146,7 +154,7 @@ const Announcement = () => {
           </div>
         </div>
       )}
-       {/* Clear All Button - Only show if there are announcements 
+      {/* Clear All Button - Only show if there are announcements 
         {recentAnnouncements.length > 0 && (
           <button
             onClick={() => {
@@ -167,3 +175,4 @@ const Announcement = () => {
 };
 
 export default Announcement;
+

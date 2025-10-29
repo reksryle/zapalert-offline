@@ -12,11 +12,11 @@ import {
   LogOut,
 } from "lucide-react";
 
-// ---------------- Sidebar ----------------
+// ---------------- Sidebar Component ----------------
 const Sidebar = ({ sidebarOpen, setSidebarOpen, handleLogout, links, location }) => (
   <div
     className={`fixed top-0 left-0 h-full w-64 bg-gradient-to-br from-white via-red-50 to-orange-50 text-gray-900 shadow-2xl z-[2000] transform transition-all duration-500 ease-out backdrop-blur-lg ${
-      sidebarOpen ? "translate-x-0" : "-translate-x-full"
+      sidebarOpen ? "translate-x-0" : "-translate-x-full" // Slide in/out animation
     }`}
   >
     {/* Logo Section */}
@@ -27,6 +27,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen, handleLogout, links, location })
         className="w-20 h-20 mb-2 drop-shadow-lg"
       />
       <h1 className="text-3xl font-black tracking-wider">ZAPALERT</h1>
+      {/* Close sidebar button */}
       <button
         type="button"
         onClick={() => setSidebarOpen(false)}
@@ -42,13 +43,13 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen, handleLogout, links, location })
         <button
           key={link.path || link.name}
           onClick={() => {
-            if (link.path) window.location.href = link.path;
-            setSidebarOpen(false);
+            if (link.path) window.location.href = link.path; // Navigate to link
+            setSidebarOpen(false); // Close sidebar on mobile
           }}
           className={`flex items-center w-full px-6 py-4 rounded-2xl font-semibold transition-all duration-300 hover:scale-105 hover:shadow-lg ${
             location.pathname === link.path
-              ? "bg-gradient-to-r from-red-500 to-orange-500 text-white shadow-lg transform scale-105"
-              : "text-gray-700 hover:bg-gradient-to-r hover:from-red-100 hover:to-orange-100 hover:text-red-700"
+              ? "bg-gradient-to-r from-red-500 to-orange-500 text-white shadow-lg transform scale-105" // Active link style
+              : "text-gray-700 hover:bg-gradient-to-r hover:from-red-100 hover:to-orange-100 hover:text-red-700" // Inactive link style
           }`}
         >
           {link.icon}
@@ -57,7 +58,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen, handleLogout, links, location })
       ))}
     </nav>
 
-    {/* Logout */}
+    {/* Logout Button */}
     <div className="p-6 border-t border-red-100">
       <button
         type="button"
@@ -71,14 +72,14 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen, handleLogout, links, location })
   </div>
 );
 
-// ---------------- Main Admin Dashboard ----------------
+// ---------------- Main Admin Dashboard Component ----------------
 const AdminDashboard = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false); // Control sidebar visibility
+  const [isLoading, setIsLoading] = useState(true); // Loading state
 
-  // 🔑 Links for admin
+  // 🔑 Navigation links for admin
   const links = [
     { name: "Pending Users", path: "/admin/pending-users", icon: <UserCheck size={20} /> },
     { name: "All Users", path: "/admin/all-users", icon: <Users size={20} /> },
@@ -86,27 +87,27 @@ const AdminDashboard = () => {
     { name: "Announce", path: "/admin/announcement", icon: <Megaphone size={20} /> },
   ];
 
-  // ✅ Loading screen timer
+  // ✅ Loading screen timer - show for 1 second
   useEffect(() => {
     const timer = setTimeout(() => setIsLoading(false), 1000);
     return () => clearTimeout(timer);
   }, []);
 
-  // ✅ Session check
+  // ✅ Check if user is actually an admin
   useEffect(() => {
     const checkSession = async () => {
       try {
         const res = await axios.get("/auth/check-session", { withCredentials: true });
-        if (res.data.role !== "admin") navigate("/");
+        if (res.data.role !== "admin") navigate("/"); // Redirect if not admin
       } catch (err) {
         console.error("Admin session check failed:", err);
-        navigate("/");
+        navigate("/"); // Redirect on error
       }
     };
     checkSession();
   }, [navigate]);
 
-  // ✅ Show loading screen
+  // ✅ Show loading screen while checking permissions
   if (isLoading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-red-600 to-red-800">
@@ -120,6 +121,7 @@ const AdminDashboard = () => {
         </div>
         <p className="text-white text-2xl font-bold animate-blink">Loading...</p>
 
+        {/* Custom CSS animations */}
         <style>
           {`
             @keyframes bounce {
@@ -151,7 +153,7 @@ const AdminDashboard = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-red-500 via-red-600 to-orange-500 flex">
-      {/* Burger Button */}
+      {/* Burger Menu Button */}
       <button
         type="button"
         onClick={() => setSidebarOpen(true)}
@@ -171,15 +173,15 @@ const AdminDashboard = () => {
           } catch {
             console.warn("Logout failed or already logged out.");
           }
-          localStorage.removeItem("zapalertRole");
+          localStorage.removeItem("zapalertRole"); // Clear local storage
           localStorage.removeItem("user");
-          navigate("/");
+          navigate("/"); // Redirect to home
         }}
         links={links}
         location={location}
       />
 
-      {/* Main Content */}
+      {/* Main Content Area */}
       <div className="flex-1 p-6 overflow-y-auto relative">
         <div className="text-center mb-6">
           <h1 className="text-4xl md:text-5xl font-extrabold text-white mb-2 tracking-wide drop-shadow-lg">
@@ -187,7 +189,7 @@ const AdminDashboard = () => {
           </h1>
           <p className="text-white/90 text-lg">Manage users, reports, and announcements</p>
         </div>
-        <Outlet />
+        <Outlet /> {/* This renders the child routes */}
       </div>
     </div>
   );

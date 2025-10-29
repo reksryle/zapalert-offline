@@ -12,6 +12,7 @@ import showAnnouncementToast from "../../utils/showAnnouncementToast";
 import useNetworkStatus from "../../hooks/useNetworkStatus";
 
 // ---------------- Map Helper ----------------
+// Different icons for different emergency types
 const iconMap = {
   Fire: new L.Icon({ iconUrl: "/icons/fire.png", iconSize: [32, 32] }),
   Flood: new L.Icon({ iconUrl: "/icons/flood.png", iconSize: [32, 32] }),
@@ -21,6 +22,7 @@ const iconMap = {
 };
 const getIcon = (type) => iconMap[type] || iconMap["Other"];
 
+// Component to force map to center on specific coordinates
 const ForceCenter = ({ center }) => {
   const map = useMap();
   useEffect(() => {
@@ -28,7 +30,7 @@ const ForceCenter = ({ center }) => {
       if (map && map.getCenter) {
         try {
           map.invalidateSize();
-          map.setView(center, 16);
+          map.setView(center, 16); // Center map and set zoom level
         } catch (err) {
           console.error("Map error:", err);
         }
@@ -39,11 +41,10 @@ const ForceCenter = ({ center }) => {
   return null;
 };
 
-
-
 // Mini Map Component for Emergency Cards
+// Shows a small map preview for each emergency report
 const MiniMap = ({ center, report, onClick }) => {
-  // Create a smaller icon for the mini-map
+  // Create smaller icons for the mini-map
   const miniIconMap = {
     Fire: new L.Icon({ iconUrl: "/icons/fire.png", iconSize: [24, 24] }),
     Flood: new L.Icon({ iconUrl: "/icons/flood.png", iconSize: [24, 24] }),
@@ -84,7 +85,7 @@ const MiniMap = ({ center, report, onClick }) => {
   );
 };
 
-// ---------------- Sidebar ----------------
+// ---------------- Sidebar Component ----------------
 const Sidebar = ({ sidebarOpen, setSidebarOpen, handleLogout, links, location }) => (
   <div
     className={`fixed top-0 left-0 h-full w-64 bg-white shadow-2xl z-[2000] transform transition-all duration-300 ${
@@ -160,7 +161,8 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen, handleLogout, links, location })
   </div>
 );
 
-// ---------------- Emergency Card (Enhanced Version) ----------------
+// ---------------- Emergency Card Component ----------------
+// Displays individual emergency report with actions
 const EmergencyCard = ({ 
   report, 
   onTheWay, 
@@ -173,6 +175,8 @@ const EmergencyCard = ({
   onRemoveCancelled, // Add this prop for removing cancelled reports
 }) => {
   const [isRemoving, setIsRemoving] = useState(false);
+  
+  // Format timestamp to Philippine time
   const formatPHTime = (isoString) =>
     new Date(isoString).toLocaleString("en-PH", {
       timeZone: "Asia/Manila",
@@ -184,6 +188,7 @@ const EmergencyCard = ({
       hour12: true,
     });
 
+  // Color coding for different emergency types
   const typeColors = {
     Fire: "bg-red-500 text-white",
     Medical: "bg-blue-500 text-white",
@@ -193,7 +198,7 @@ const EmergencyCard = ({
   };
 
   const isPending = false; 
-  const isCancelled = report.status === "cancelled";
+  const isCancelled = report.status === "cancelled"; // Check if report is cancelled
   
   // Handle map click for this specific report
   const handleMapClick = () => {
@@ -208,6 +213,7 @@ const EmergencyCard = ({
     }, 300);
   };
 
+  // Special display for cancelled reports
   if (isCancelled) {
     return (
       <div className={`relative bg-white rounded-2xl shadow-lg overflow-hidden transition-all duration-300 ${
@@ -325,6 +331,7 @@ const EmergencyCard = ({
     );
   }
 
+  // Normal emergency report display
   return (
     <div className={`relative bg-white rounded-2xl shadow-lg transition-all hover:shadow-xl ${
       isOnTheWay ? "bg-yellow-50 border-2 border-yellow-300" : ""
@@ -402,6 +409,7 @@ const EmergencyCard = ({
           </div>
         </div>
 
+        {/* Action Buttons - Change based on report status */}
         <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
           {/* Show ON THE WAY and DECLINE buttons initially */}
           {!isOnTheWay && !isArrived && (
@@ -473,7 +481,8 @@ const EmergencyCard = ({
   );
 };
 
-// ---------------- Emergency List (Enhanced Version) ----------------
+// ---------------- Emergency List Component ----------------
+// Displays all active emergencies with filtering options
 const EmergencyList = ({ onTheWayIds, setOnTheWayIds, arrivedIds, setArrivedIds, onActionClick, onMapClick }) => {
   const { reports, markAsOnTheWay, markAsResponded, declineReport } = useEmergencyReports(false);
 
@@ -507,7 +516,7 @@ const EmergencyList = ({ onTheWayIds, setOnTheWayIds, arrivedIds, setArrivedIds,
     return report && report.status !== "cancelled" && !removedCancelledReports.includes(id);
   }).length;
 
-  // Sync ARRIVED state
+  // Sync ARRIVED state with database
   useEffect(() => {
     const currentResponder = JSON.parse(localStorage.getItem("zapalert-user"));
     if (!currentResponder?._id) return;
@@ -537,7 +546,7 @@ const EmergencyList = ({ onTheWayIds, setOnTheWayIds, arrivedIds, setArrivedIds,
     if (!onTheWayIds.includes(id)) {
       const updatedOnTheWayIds = [...onTheWayIds, id];
       setOnTheWayIds(updatedOnTheWayIds);
-      localStorage.setItem("onTheWayIds", JSON.stringify(updatedOnTheWayIds));
+      localStorage.setItem("onTheWayIds", JSON.stringify(updatedOnTheWayIds)); // Save to localStorage
     }
   };
 
@@ -644,7 +653,8 @@ const EmergencyList = ({ onTheWayIds, setOnTheWayIds, arrivedIds, setArrivedIds,
   );
 };
 
-// ---------------- Map View ----------------
+// ---------------- Map View Component ----------------
+// Shows emergency locations on an interactive map
 const MapView = ({
   responderNotifications,
   setResponderNotifications,
@@ -656,7 +666,7 @@ const MapView = ({
   setArrivedIds,
   highlightedReport // Add this prop
 }) => {
-  const zapateraCenter = [10.306711119471714, 123.9011395473235];
+  const zapateraCenter = [10.306711119471714, 123.9011395473235]; // Center of Barangay Zapatera
   const { reports, markAsOnTheWay, markAsResponded, declineReport } = useEmergencyReports(true);
   const audioInitialized = useRef(false);
   const announcementAudioRef = useRef(null);
@@ -676,7 +686,7 @@ const MapView = ({
         audioInitialized.current = true;
       }
     };
-    window.addEventListener("click", allowAudio, { once: true });
+    window.addEventListener("click", allowAudio, { once: true }); // Initialize audio on first click
     return () => window.removeEventListener("click", allowAudio);
   }, []);
 
@@ -805,38 +815,39 @@ const MapView = ({
   );
 };
 
-// ---------------- Main Dashboard ----------------
+// ---------------- Main Responder Dashboard Component ----------------
 const ResponderDashboard = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const [loading, setLoading] = useState(true);
-  const [username, setUsername] = useState("");
-  const [fullName, setFullName] = useState("");
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState("list"); // "list" or "map"
-  const networkStatus = useNetworkStatus();
-  const wasOffline = useRef(false);
-  const onlineTimeout = useRef(null);
-  const [showTutorial, setShowTutorial] = useState(false);
-  const [showNotificationDropdown, setShowNotificationDropdown] = useState(false);
+  const [loading, setLoading] = useState(true); // Loading state
+  const [username, setUsername] = useState(""); // Responder username
+  const [fullName, setFullName] = useState(""); // Responder full name
+  const [sidebarOpen, setSidebarOpen] = useState(false); // Sidebar visibility
+  const [activeTab, setActiveTab] = useState("list"); // "list" or "map" - which view is active
+  const networkStatus = useNetworkStatus(); // Network connectivity status
+  const wasOffline = useRef(false); // Track if was previously offline
+  const onlineTimeout = useRef(null); // Timeout for online status
+  const [showTutorial, setShowTutorial] = useState(false); // Tutorial popup visibility
+  const [showNotificationDropdown, setShowNotificationDropdown] = useState(false); // Notification dropdown visibility
   
   // Add state to track which report to highlight on map
   const [highlightedReport, setHighlightedReport] = useState(null);
 
+  // Notifications state
   const [responderNotifications, setResponderNotifications] = useState(() => {
     const stored = localStorage.getItem("responder-notifications");
-    return stored ? JSON.parse(stored) : [];
+    return stored ? JSON.parse(stored) : []; // Load from localStorage
   });
   const [hasNewNotif, setHasNewNotif] = useState(() => {
     const stored = localStorage.getItem("responder-hasNewNotif");
     if (stored !== null) return JSON.parse(stored);
-    return responderNotifications.length > 0;
+    return responderNotifications.length > 0; // Check if has new notifications
   });
 
   // Track if we've already shown toasts for notifications
   const shownNotificationIds = useRef(new Set());
 
-  // ---------------- Network Toast ----------------
+  // ---------------- Network Status Monitoring ----------------
   useEffect(() => {
     let id;
     if (networkStatus === "offline") {
@@ -845,12 +856,12 @@ const ResponderDashboard = () => {
         clearTimeout(onlineTimeout.current);
         onlineTimeout.current = null;
       }
-      id = toast.loading("No connection", { duration: Infinity });
+      id = toast.loading("No connection", { duration: Infinity }); // Show offline toast
     } else if (networkStatus === "online") {
       if (wasOffline.current) {
         onlineTimeout.current = setTimeout(() => {
           toast.dismiss();
-          toast.success("Connected to network");
+          toast.success("Connected to network"); // Show reconnection toast
           wasOffline.current = false;
           onlineTimeout.current = null;
         }, 2000);
@@ -867,7 +878,7 @@ const ResponderDashboard = () => {
   // ---------------- Shared ON THE WAY / ARRIVED states ----------------
   const [onTheWayIds, setOnTheWayIds] = useState(() => {
     const stored = localStorage.getItem("onTheWayIds");
-    return stored ? JSON.parse(stored) : [];
+    return stored ? JSON.parse(stored) : []; // Load from localStorage
   });
   const [arrivedIds, setArrivedIds] = useState([]);
 
@@ -880,6 +891,7 @@ const ResponderDashboard = () => {
     { name: "Dashboard", path: "/responder", icon: <Home size={18} /> }
   ];
 
+  // ---------------- Logout Function ----------------
   const handleLogout = async () => {
     try {
       await axios.post("/auth/logout", {}, { withCredentials: true });
@@ -903,6 +915,7 @@ const ResponderDashboard = () => {
     setHighlightedReport(reportId);
   };
 
+  // Clear all notifications
   const handleClearNotifications = () => {
     setResponderNotifications([]);
     localStorage.removeItem("responder-notifications");
@@ -911,13 +924,13 @@ const ResponderDashboard = () => {
     setShowNotificationDropdown(false);
   };
 
-  // ---------------- Session ----------------
+  // ---------------- User Session Check ----------------
   useEffect(() => {
     axios
       .get("/auth/session", { withCredentials: true })
       .then((res) => {
         if (res.data.role !== "responder") {
-          navigate("/");
+          navigate("/"); // Redirect if not responder
         } else {
           setUsername(res.data.username);
           setFullName(res.data.firstName + " " + res.data.lastName);
@@ -933,10 +946,10 @@ const ResponderDashboard = () => {
           }, 2000);
         }
       })
-      .catch(() => navigate("/"));
+      .catch(() => navigate("/")); // Redirect on error
   }, [navigate]);
 
-  // ---------------- Socket ----------------
+  // ---------------- Socket.IO Real-time Communication ----------------
   useEffect(() => {
     if (loading) return;
 
@@ -948,6 +961,7 @@ const ResponderDashboard = () => {
       responderName: fullName
     });
 
+    // Listen for public announcements
     responderSocket.on("public-announcement", (data) => {
       showAnnouncementToast(data.message);
       const newNotif = {
@@ -959,6 +973,7 @@ const ResponderDashboard = () => {
       setHasNewNotif(true);
     });
 
+    // Helper function to push notifications
     const pushNotif = (data, template, soundFile) => {
       const message = template
         .replace("[responder]", data.responderName)
@@ -983,6 +998,7 @@ const ResponderDashboard = () => {
       }
     };
 
+    // Listen for various responder actions
     responderSocket.on("responder-declined", (data) =>
       pushNotif(data, "🔴 [responder] declined the [type] report of [resident]", "/sounds/responderdeclined.mp3")
     );
@@ -996,6 +1012,7 @@ const ResponderDashboard = () => {
       pushNotif(data, "🔵 [responder] has arrived at the [type] report of [resident]", "/sounds/imhere.mp3")
     );
 
+  // Listen for resident follow-up requests
   responderSocket.on("resident-followup", (data) => {
     const message = `Resident ${data.residentName} requested follow-up for ${data.type} report`;
     
@@ -1025,7 +1042,7 @@ const ResponderDashboard = () => {
     setHasNewNotif(true);
   });
 
-  // Also update the report-cancelled handler to handle the activeResponders logic:
+  // Listen for report cancellations
   responderSocket.on("report-cancelled", (data) => {
     const message = `Report for ${data.type} has been cancelled by Resident ${data.residentName}`;
     
@@ -1060,15 +1077,16 @@ const ResponderDashboard = () => {
     }
   });
 
-  return () => responderSocket.disconnect();
+  return () => responderSocket.disconnect(); // Cleanup on unmount
   }, [loading, username, fullName]); // Add fullName to dependency array
 
-  // ---------------- Persist notifications ----------------
+  // ---------------- Persist notifications in localStorage ----------------
   useEffect(() => {
     localStorage.setItem("responder-notifications", JSON.stringify(responderNotifications));
     localStorage.setItem("responder-hasNewNotif", JSON.stringify(hasNewNotif));
   }, [responderNotifications, hasNewNotif]);
 
+  // ---------------- Loading Screen ----------------
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-red-600 to-red-800">
@@ -1119,6 +1137,7 @@ const ResponderDashboard = () => {
     );
   }
 
+  // ---------------- Main Dashboard Content ----------------
   return (
     <div className="min-h-screen bg-gradient-to-br from-red-500 via-red-600 to-orange-500 relative">
       <Toaster position="top-right" />

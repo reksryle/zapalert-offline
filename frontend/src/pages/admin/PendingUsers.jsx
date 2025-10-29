@@ -6,13 +6,14 @@ const BASE_URL = import.meta.env.VITE_API_URL;
 const BASE_IMAGE_URL = import.meta.env.VITE_IMAGE_URL || "https://zapalert-backend.onrender.com";
 
 const PendingUsers = () => {
-  const [pendingUsers, setPendingUsers] = useState([]);
-  const [selectedImage, setSelectedImage] = useState(null);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [modalUserId, setModalUserId] = useState(null);
-  const [showDeclinedModal, setShowDeclinedModal] = useState(false);
-  const [declinedAccounts, setDeclinedAccounts] = useState([]);
+  const [pendingUsers, setPendingUsers] = useState([]); // Users waiting for approval
+  const [selectedImage, setSelectedImage] = useState(null); // Full-size ID image to show
+  const [modalOpen, setModalOpen] = useState(false); // Reject confirmation modal
+  const [modalUserId, setModalUserId] = useState(null); // Which user to reject
+  const [showDeclinedModal, setShowDeclinedModal] = useState(false); // Declined users modal
+  const [declinedAccounts, setDeclinedAccounts] = useState([]); // Recently declined users
 
+  // Fetch pending users from API
   const fetchPending = async () => {
     try {
       const res = await axios.get(`${BASE_URL}/auth/pending-users`, {
@@ -24,50 +25,54 @@ const PendingUsers = () => {
     }
   };
 
+  // Approve a user
   const approveUser = async (id) => {
     try {
       await axios.patch(`${BASE_URL}/auth/approve/${id}`, null, {
         withCredentials: true,
       });
       toast.success("User approved successfully!");
-      fetchPending();
+      fetchPending(); // Refresh the list
     } catch (error) {
       toast.error("Failed to approve user.");
       console.error(error);
     }
   };
 
-const rejectUser = async (id) => {
-  try {
-    // Find the user before deleting to save their info
-    const userToReject = pendingUsers.find(user => user._id === id);
-    
-    // Use the new reject endpoint (no password required)
-    await axios.delete(`${BASE_URL}/auth/reject/${id}`, {
-      withCredentials: true,
-    });
-    
-    // Save to declined accounts
-    if (userToReject) {
-      saveDeclinedAccount(userToReject);
+  // Reject a user
+  const rejectUser = async (id) => {
+    try {
+      // Find the user before deleting to save their info
+      const userToReject = pendingUsers.find(user => user._id === id);
+      
+      // Use the new reject endpoint (no password required)
+      await axios.delete(`${BASE_URL}/auth/reject/${id}`, {
+        withCredentials: true,
+      });
+      
+      // Save to declined accounts for record keeping
+      if (userToReject) {
+        saveDeclinedAccount(userToReject);
+      }
+      
+      toast.success("User rejected and deleted.");
+      fetchPending(); // Refresh the list
+    } catch (error) {
+      toast.error("Failed to reject user.");
+      console.error(error);
     }
-    
-    toast.success("User rejected and deleted.");
-    fetchPending();
-  } catch (error) {
-    toast.error("Failed to reject user.");
-    console.error(error);
-  }
-};
-
-  const handleRejectClick = (id) => {
-    setModalUserId(id);
-    setModalOpen(true);
   };
 
+  // Show reject confirmation modal
+  const handleRejectClick = (id) => {
+    setModalUserId(id); // Set which user to reject
+    setModalOpen(true); // Show confirmation modal
+  };
+
+  // Confirm and execute rejection
   const handleConfirmReject = () => {
     rejectUser(modalUserId);
-    setModalOpen(false);
+    setModalOpen(false); // Close modal
   };
 
   // Load declined accounts from localStorage
@@ -78,12 +83,12 @@ const rejectUser = async (id) => {
     }
   }, []);
 
-  // Save declined account when user is rejected
+  // Save declined account to localStorage
   const saveDeclinedAccount = (user) => {
     const declinedAccount = {
-      ...user,
-      declinedAt: new Date().toISOString(),
-      declinedDate: new Date().toLocaleString('en-PH', {
+      ...user, // Copy all user data
+      declinedAt: new Date().toISOString(), // Timestamp for sorting
+      declinedDate: new Date().toLocaleString('en-PH', { // Formatted date for display
         timeZone: 'Asia/Manila',
         year: 'numeric',
         month: 'long',
@@ -93,6 +98,7 @@ const rejectUser = async (id) => {
       })
     };
     
+    // Add to beginning of array (newest first)
     const updatedDeclinedAccounts = [declinedAccount, ...declinedAccounts];
     setDeclinedAccounts(updatedDeclinedAccounts);
     localStorage.setItem('declinedAccounts', JSON.stringify(updatedDeclinedAccounts));
@@ -104,11 +110,13 @@ const rejectUser = async (id) => {
       const fifteenDaysAgo = new Date();
       fifteenDaysAgo.setDate(fifteenDaysAgo.getDate() - 15);
       
+      // Filter out accounts declined more than 15 days ago
       const filteredAccounts = declinedAccounts.filter(account => {
         const declinedDate = new Date(account.declinedAt);
         return declinedDate > fifteenDaysAgo;
       });
       
+      // Update if any were removed
       if (filteredAccounts.length !== declinedAccounts.length) {
         setDeclinedAccounts(filteredAccounts);
         localStorage.setItem('declinedAccounts', JSON.stringify(filteredAccounts));
@@ -118,27 +126,30 @@ const rejectUser = async (id) => {
     cleanOldDeclinedAccounts();
   }, [declinedAccounts]);
 
+  // Fetch pending users on component mount
   useEffect(() => {
     fetchPending();
   }, []);
 
   return (
     <div className="bg-gradient-to-br from-white via-red-50 to-orange-50 rounded-2xl shadow-lg p-6">
+      {/* Header with View Declined Users Button */}
       <div className="flex justify-between items-center mb-6">
-  <h1 className="text-2xl font-bold text-gray-800">Pending User Requests</h1>
-  
-  {/* View Declined Users Button */}
-  <button
-    onClick={() => setShowDeclinedModal(true)}
-    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-gray-600 to-gray-700 text-white rounded-xl hover:from-gray-700 hover:to-gray-800 transition-all shadow-lg font-semibold text-sm"
-  >
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-    </svg>
-    Declined Users ({declinedAccounts.length})
-  </button>
-</div>
+        <h1 className="text-2xl font-bold text-gray-800">Pending User Requests</h1>
+        
+        {/* View Declined Users Button */}
+        <button
+          onClick={() => setShowDeclinedModal(true)}
+          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-gray-600 to-gray-700 text-white rounded-xl hover:from-gray-700 hover:to-gray-800 transition-all shadow-lg font-semibold text-sm"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+          Declined Users ({declinedAccounts.length})
+        </button>
+      </div>
 
+      {/* Pending Users List */}
       {pendingUsers.length === 0 ? (
         <div className="text-center py-12 bg-white/80 rounded-2xl shadow-inner">
           <p className="text-gray-600 text-lg">No pending users.</p>
@@ -165,12 +176,12 @@ const rejectUser = async (id) => {
                     <p><b>Contact No.:</b> {user.contactNumber}</p>
                     <p><b>Barangay:</b> {user.barangay}</p>
                     <p><b>Barrio:</b> {user.barrio}</p>
-
                   </div>
                 </div>
 
-                {/* Right: ID Image + Actions */}
+                {/* Right: ID Image + Action Buttons */}
                 <div className="flex flex-col items-center gap-4 min-w-[10rem]">
+                  {/* ID Image - click to view full size */}
                   <img
                     src={imgURL}
                     alt="Valid ID"
@@ -198,15 +209,15 @@ const rejectUser = async (id) => {
         </div>
       )}
 
-      {/* Image Modal */}
+      {/* Full-size Image Modal */}
       {selectedImage && (
         <div
           className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50"
-          onClick={() => setSelectedImage(null)}
+          onClick={() => setSelectedImage(null)} // Close when clicking backdrop
         >
           <div
             className="bg-white rounded-2xl p-6 max-w-3xl max-h-[90vh] overflow-auto relative shadow-2xl border-2 border-red-200"
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()} // Prevent closing when clicking image
           >
             <img
               src={selectedImage}
@@ -227,11 +238,11 @@ const rejectUser = async (id) => {
       {modalOpen && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
-          onClick={() => setModalOpen(false)}
+          onClick={() => setModalOpen(false)} // Close when clicking backdrop
         >
           <div
             className="bg-gradient-to-br from-white via-red-50 to-orange-50 rounded-2xl shadow-xl w-80 max-w-full p-6 border-t-4 border-red-600"
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()} // Prevent closing when clicking modal
           >
             <h2 className="text-center text-xl font-bold mb-4 text-gray-800">Reject User?</h2>
             <p className="mb-6 text-center text-red-600 font-medium">
@@ -254,71 +265,72 @@ const rejectUser = async (id) => {
           </div>
         </div>
       )}
+
       {/* Declined Users Modal */}
-          {showDeclinedModal && (
-          <div className="fixed inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm z-[70]">
-            <div className="bg-gradient-to-br from-white via-red-50 to-orange-50 rounded-2xl p-6 w-full max-w-4xl mx-4 max-h-[80vh] overflow-y-auto relative shadow-2xl border border-red-200">
-              <button 
-                className="absolute top-4 right-4 text-2xl text-red-600 hover:text-red-800 transition-colors"
-                onClick={() => setShowDeclinedModal(false)}
-              >
-                ×
-              </button>
+      {showDeclinedModal && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm z-[70]">
+          <div className="bg-gradient-to-br from-white via-red-50 to-orange-50 rounded-2xl p-6 w-full max-w-4xl mx-4 max-h-[80vh] overflow-y-auto relative shadow-2xl border border-red-200">
+            <button 
+              className="absolute top-4 right-4 text-2xl text-red-600 hover:text-red-800 transition-colors"
+              onClick={() => setShowDeclinedModal(false)}
+            >
+              ×
+            </button>
 
-              <h2 className="text-xl font-bold mb-4 text-gray-800">Recently Declined Users</h2>
-              
-              {/* Info Note */}
-              <div className="mb-4 p-4 bg-yellow-50 rounded-xl border border-yellow-200">
-                <p className="text-yellow-700 text-sm">
-                  <strong>Note:</strong> Declined users are automatically cleared after 15 days.
-                </p>
+            <h2 className="text-xl font-bold mb-4 text-gray-800">Recently Declined Users</h2>
+            
+            {/* Info Note */}
+            <div className="mb-4 p-4 bg-yellow-50 rounded-xl border border-yellow-200">
+              <p className="text-yellow-700 text-sm">
+                <strong>Note:</strong> Declined users are automatically cleared after 15 days.
+              </p>
+            </div>
+
+            {declinedAccounts.length === 0 ? (
+              <div className="text-center py-12 bg-white/80 rounded-2xl shadow-inner">
+                <p className="text-gray-600 text-lg">No declined users found.</p>
               </div>
-
-              {declinedAccounts.length === 0 ? (
-                <div className="text-center py-12 bg-white/80 rounded-2xl shadow-inner">
-                  <p className="text-gray-600 text-lg">No declined users found.</p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto rounded-2xl shadow-lg bg-white/80 backdrop-blur-sm">
-                  <table className="min-w-full text-left">
-                    <thead className="bg-gradient-to-r from-gray-600 to-gray-700 text-white">
-                      <tr>
-                        <th className="py-2 px-3 rounded-tl-2xl text-xs">Name</th>
-                        <th className="py-2 px-3 text-xs">Username</th>
-                        <th className="py-2 px-3 text-xs">Role</th>
-                        <th className="py-2 px-3 text-xs">Contact #</th>
-                        <th className="py-2 px-3 text-xs">Age</th>
-                        <th className="py-2 px-3 text-xs">Barrio</th>
-                        <th className="py-2 px-3 text-xs">Barangay</th>
-                        <th className="py-2 px-3 rounded-tr-2xl text-xs">Declined On</th>
+            ) : (
+              <div className="overflow-x-auto rounded-2xl shadow-lg bg-white/80 backdrop-blur-sm">
+                <table className="min-w-full text-left">
+                  <thead className="bg-gradient-to-r from-gray-600 to-gray-700 text-white">
+                    <tr>
+                      <th className="py-2 px-3 rounded-tl-2xl text-xs">Name</th>
+                      <th className="py-2 px-3 text-xs">Username</th>
+                      <th className="py-2 px-3 text-xs">Role</th>
+                      <th className="py-2 px-3 text-xs">Contact #</th>
+                      <th className="py-2 px-3 text-xs">Age</th>
+                      <th className="py-2 px-3 text-xs">Barrio</th>
+                      <th className="py-2 px-3 text-xs">Barangay</th>
+                      <th className="py-2 px-3 rounded-tr-2xl text-xs">Declined On</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {declinedAccounts.map((account, index) => (
+                      <tr
+                        key={index}
+                        className="border-b border-gray-200 hover:bg-gray-50/50 transition-all"
+                      >
+                        <td className="py-2 px-3 font-medium text-xs">{account.firstName} {account.lastName}</td>
+                        <td className="py-2 px-3 text-xs">{account.username}</td>
+                        <td className="py-2 px-3">
+                          <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                            account.role === "responder" ? "bg-red-100 text-red-800" : "bg-blue-100 text-blue-800"
+                          }`}>
+                            {account.role}
+                          </span>
+                        </td>
+                        <td className="py-2 px-3 text-xs">{account.contactNumber || "N/A"}</td>
+                        <td className="py-2 px-3 text-xs">{account.age ?? "N/A"}</td>
+                        <td className="py-2 px-3 text-xs">{account.barrio || "—"}</td>
+                        <td className="py-2 px-3 text-xs">{account.barangay}</td>
+                        <td className="py-2 px-3 text-xs text-gray-600">{account.declinedDate}</td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {declinedAccounts.map((account, index) => (
-                        <tr
-                          key={index}
-                          className="border-b border-gray-200 hover:bg-gray-50/50 transition-all"
-                        >
-                          <td className="py-2 px-3 font-medium text-xs">{account.firstName} {account.lastName}</td>
-                          <td className="py-2 px-3 text-xs">{account.username}</td>
-                          <td className="py-2 px-3">
-                            <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                              account.role === "responder" ? "bg-red-100 text-red-800" : "bg-blue-100 text-blue-800"
-                            }`}>
-                              {account.role}
-                            </span>
-                          </td>
-                          <td className="py-2 px-3 text-xs">{account.contactNumber || "N/A"}</td>
-                          <td className="py-2 px-3 text-xs">{account.age ?? "N/A"}</td>
-                          <td className="py-2 px-3 text-xs">{account.barrio || "—"}</td>
-                          <td className="py-2 px-3 text-xs">{account.barangay}</td>
-                          <td className="py-2 px-3 text-xs text-gray-600">{account.declinedDate}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       )}
